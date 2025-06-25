@@ -1,0 +1,98 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Prism - Code Meta Information Visualization Tool
+
+## Project Structure
+- `backend/` - Python backend that analyzes code and extracts meta information
+- `frontend/` - TypeScript frontend that visualizes the extracted data as graphs
+# Prism - Code Visualization Tool
+
+## Current Implementation Status
+The app is fully implemented with all three core visualization features:
+- ✅ **Abstract Syntax Tree (AST)** - Complete with graph and JSON views
+- ✅ **Class Inheritance Hierarchy** - Complete with graph and list views  
+- ✅ **Function Call Graph** - Complete with network graph and list views
+
+## Project Structure
+
+```
+prism/
+├── backend/
+│   ├── app.py              # Flask server with 3 API endpoints
+│   └── requirements.txt    # Python dependencies
+├── frontend/
+│   ├── src/
+│   │   ├── ast.ts         # AST visualization logic
+│   │   ├── inheritance.ts  # Class inheritance visualization
+│   │   ├── callgraph.ts   # Function call graph visualization
+│   │   └── index.ts       # Frontend Express server
+│   ├── public/
+│   │   ├── index.html     # Main UI with 3 tabs
+│   │   ├── style.css      # Complete styling for all features
+│   │   ├── ast.js         # Compiled AST visualization
+│   │   ├── inheritance.js # Compiled inheritance visualization
+│   │   ├── callgraph.js   # Compiled call graph visualization
+│   │   └── index.js       # Compiled server
+│   ├── package.json       # Frontend dependencies
+│   ├── tsconfig.json      # TypeScript configuration
+│   └── tsconfig.server.json # Server TypeScript config
+├── README.md
+└── test_setup.py
+```
+
+## Technology Stack
+- **Backend**: Flask (Python) with AST parsing and code analysis
+- **Frontend**: TypeScript with D3.js for interactive visualizations
+- **UI**: HTML5 with modern CSS, responsive design
+- **Build**: TypeScript compiler for JS generation
+
+## API Endpoints
+1. `POST /api/ast` - Extract Abstract Syntax Tree from Python code
+2. `POST /api/inheritance` - Extract class inheritance relationships
+3. `POST /api/callgraph` - Extract function call dependencies
+4. `GET /api/health` - Health check endpoint
+
+## Features Implemented
+
+### 1. Abstract Syntax Tree (AST)
+- **Graph View**: Hierarchical tree visualization of code structure
+- **JSON View**: Raw AST data in formatted JSON
+- **Controls**: Toggle views, zoom in/out, reset zoom
+- **Interactive**: Hover tooltips with node details
+
+### 2. Class Inheritance Hierarchy
+- **Graph View**: Tree layout showing inheritance relationships
+- **List View**: Text-based class descriptions with methods/attributes
+- **Visual Elements**: Different node types for classes vs methods
+- **Tooltips**: Detailed information on hover
+
+### 3. Function Call Graph
+- **Network Graph**: Force-directed graph showing function dependencies
+- **List View**: Function listings with their calls
+- **Color Coding**: Functions (green), external calls (orange), global scope (purple)
+- **Interactive**: Draggable nodes, zoom controls, animated layout
+
+## UI Design
+- **Three-tab interface** for switching between visualizations
+- **Consistent control panels** with view toggles and zoom controls
+- **Responsive design** that works on desktop and mobile
+- **Accessibility features** with ARIA labels and keyboard navigation
+- **Modern styling** with gradients, shadows, and smooth transitions
+
+## Development Guidelines
+- ✅ All core features are implemented and working
+- ✅ Clean separation between backend analysis and frontend visualization
+- ✅ Modular TypeScript architecture with separate files per feature
+- ✅ Consistent API design across all endpoints
+- ✅ Responsive and accessible user interface
+- ✅ Comprehensive error handling and user feedback
+
+## Usage
+1. Start backend: `cd backend && python app.py`
+2. Start frontend: `cd frontend && npm start`
+3. Open browser to `http://localhost:3000`
+4. Enter Python code and use the three extraction buttons
+5. Explore visualizations in the corresponding tabs 

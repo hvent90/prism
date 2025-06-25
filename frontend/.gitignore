@@ -1,0 +1,17 @@
+/tmp
+/out-tsc
+
+# Generated files
+/public/*.js
+/public/*.js.map
+/dist/
+
+/node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+/.pnp
+.pnp.js
+.idea/*
+
+.vscode/*

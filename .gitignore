@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Generated files
+frontend/public/*.js
+frontend/public/*.js.map
+frontend/dist/
+backend/__pycache__/
+backend/*.pyc
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build outputs
+build/
+dist/
+*.log 
