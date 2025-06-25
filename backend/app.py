@@ -7,7 +7,13 @@ from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 
 app = Flask(__name__)
-CORS(app)
+
+# Configure CORS with specific settings
+CORS(app, 
+     origins=['http://localhost:3000', 'http://localhost:5173', 'http://127.0.0.1:3000', 'http://127.0.0.1:5173'],
+     methods=['GET', 'POST', 'OPTIONS'],
+     allow_headers=['Content-Type', 'Authorization'],
+     supports_credentials=True)
 
 # Initialize the embedding model (will download once, ~90MB)
 try:
@@ -318,9 +324,44 @@ def extract_ast():
             'error': f'Error processing code: {str(e)}'
         }), 500
 
+# Add CORS preflight handler
+@app.route('/api/<path:endpoint>', methods=['OPTIONS'])
+def handle_preflight(endpoint):
+    """Handle CORS preflight requests"""
+    response = jsonify({'status': 'ok'})
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
+    return response
+
+def extract_functions_from_ast(tree):
+    """Extract standalone function definitions from AST"""
+    functions = []
+    
+    def visit_node(node):
+        # Only extract functions at module level (not inside classes)
+        if isinstance(node, ast.FunctionDef):
+            params = [arg.arg for arg in node.args.args]
+            functions.append({
+                'name': node.name,
+                'params': params,
+                'docstring': ast.get_docstring(node),
+                'lineno': node.lineno
+            })
+        elif isinstance(node, ast.ClassDef):
+            # Skip functions inside classes
+            pass
+        else:
+            # Visit children for non-function, non-class nodes
+            for child in ast.iter_child_nodes(node):
+                visit_node(child)
+    
+    visit_node(tree)
+    return functions
+
 @app.route('/api/inheritance', methods=['POST'])
 def extract_inheritance():
-    """Extract class inheritance hierarchy from Python code"""
+    """Extract class inheritance hierarchy and standalone functions from Python code"""
     try:
         data = request.get_json()
         code = data.get('code', '')
@@ -334,9 +375,13 @@ def extract_inheritance():
         # Extract class information
         classes = extract_classes_from_ast(tree)
         
+        # Extract standalone functions
+        functions = extract_functions_from_ast(tree)
+        
         return jsonify({
             'success': True,
-            'classes': classes
+            'classes': classes,
+            'functions': functions
         })
         
     except SyntaxError as e:
@@ -434,6 +479,16 @@ def rag_query():
 def health_check():
     """Health check endpoint"""
     return jsonify({'status': 'healthy', 'service': 'prism-backend'})
+
+@app.route('/api/test-cors', methods=['GET', 'POST'])
+def test_cors():
+    """Test endpoint to verify CORS is working"""
+    return jsonify({
+        'status': 'success',
+        'message': 'CORS is working properly',
+        'method': request.method,
+        'origin': request.headers.get('Origin', 'unknown')
+    })
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000) 

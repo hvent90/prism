@@ -3,371 +3,58 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prism - Code AST Visualizer</title>
-    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <title>Prism - Python Code Analysis Dashboard</title>
+
     <link rel="stylesheet" href="style.css">
+    
+    <!-- Monaco Editor -->
+    <script src="https://unpkg.com/monaco-editor@0.44.0/min/vs/loader.js"></script>
+    
+    <!-- D3.js for visualizations -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
 <body>
-    <div class="container">
-        <header class="header">
-            <h1>🔮 Prism - Code AST Visualizer</h1>
-            <p>Extract and visualize Abstract Syntax Trees and Class Inheritance from Python code</p>
-        </header>
-        
-        <main class="main-content">
-            <!-- Input Section -->
-            <section class="input-section" aria-labelledby="input-heading">
-                <h2 id="input-heading">Input Python Code</h2>
-                <div class="input-container">
-                    <label for="codeInput" class="sr-only">Python code input</label>
-                    <textarea 
-                        id="codeInput" 
-                        placeholder="Enter Python code here..."
-                        aria-describedby="code-help"
-                        rows="15">def helper_function():
-    return "Helper result"
+    <!-- Dashboard Header -->
+    <header class="dashboard-header">
+        <div class="header-left">
+            <h1 class="dashboard-title">
+                <span class="logo">🔮</span>
+                Prism Dashboard
+            </h1>
+        </div>
+        <div class="header-center">
+            <div class="analysis-info">
+                <span id="analysis-status">No analysis</span>
+                <span id="line-count">0 lines</span>
+            </div>
+        </div>
+        <div class="header-right">
+            <button id="layout-toggle" class="btn btn-secondary" title="Toggle Layout">
+                <span class="icon">⚡</span>
+                Layout
+            </button>
+        </div>
+    </header>
 
-def process_data(data):
-    result = helper_function()
-    return validate_data(result)
+    <!-- Main Dashboard Grid -->
+    <main id="dashboard-grid" class="dashboard-grid">
+        <section class="panel code-panel"></section>
+        <section class="panel main-panel"></section>
+        <section class="panel rag-panel"></section>
+    </main>
 
-def validate_data(data):
-    if not data:
-        return None
-    return clean_data(data)
+    <!-- Status Bar -->
+    <footer class="status-bar">
+        <div class="status-left">
+            <span id="status-message" class="status-message">Ready</span>
+        </div>
+        <div class="status-right">
+            <span class="status-item">Prism v1.0</span>
+            <span class="status-item" id="connection-status">Connected</span>
+        </div>
+    </footer>
 
-def clean_data(data):
-    return data.strip().lower()
-
-class Animal:
-    def __init__(self, name):
-        self.name = name
-    
-    def speak(self):
-        pass
-
-class Dog(Animal):
-    def speak(self):
-        return f"{self.name} says Woof!"
-    
-    def fetch(self):
-        result = process_data("ball")
-        return f"{self.name} fetches the {result}"
-
-# Example usage
-my_dog = Dog("Buddy")
-my_dog.speak()
-my_dog.fetch()</textarea>
-                    <div id="code-help" class="help-text">
-                        Enter Python code with classes and functions to visualize their structure
-                    </div>
-                </div>
-                
-                <div class="action-buttons">
-                    <button 
-                        onclick="extractAST()" 
-                        class="btn btn-primary"
-                        aria-describedby="ast-help">
-                        📊 Extract AST
-                    </button>
-                    <button 
-                        onclick="extractInheritance()" 
-                        class="btn btn-secondary"
-                        aria-describedby="inheritance-help">
-                        🏗️ Extract Inheritance
-                    </button>
-                    <button 
-                        onclick="extractCallGraph()" 
-                        class="btn btn-tertiary"
-                        aria-describedby="callgraph-help">
-                        🔗 Extract Call Graph
-                    </button>
-                </div>
-                
-                <!-- RAG Query Section -->
-                <div class="rag-query-section">
-                    <h3>🤖 RAG Query</h3>
-                    <div class="query-input-container">
-                        <label for="ragQueryInput" class="sr-only">Natural language query input</label>
-                        <input 
-                            id="ragQueryInput" 
-                            type="text"
-                            placeholder="Ask about the code: 'find classes', 'how to create objects', 'error handling'..."
-                            aria-describedby="rag-help">
-                        <button 
-                            onclick="executeRAGQuery()" 
-                            class="btn btn-quaternary"
-                            aria-describedby="rag-help">
-                            🔍 Search
-                        </button>
-                    </div>
-                </div>
-                
-                <div id="status" class="status-message" role="status" aria-live="polite"></div>
-                <div class="help-text">
-                    <span id="ast-help">Extract and visualize the Abstract Syntax Tree structure</span><br>
-                    <span id="inheritance-help">Extract and visualize class inheritance relationships</span><br>
-                    <span id="callgraph-help">Extract and visualize function call relationships</span><br>
-                    <span id="rag-help">Ask natural language questions about the code using semantic search</span>
-                </div>
-            </section>
-
-            <!-- Visualization Section -->
-            <section class="visualization-section" aria-labelledby="viz-heading">
-                <h2 id="viz-heading">Visualization</h2>
-                
-                <!-- Tab Navigation -->
-                <div class="tab-container">
-                    <nav class="tab-nav" role="tablist" aria-label="Visualization tabs">
-                        <button 
-                            class="tab-button active" 
-                            role="tab" 
-                            aria-selected="true" 
-                            aria-controls="ast-panel" 
-                            id="ast-tab"
-                            onclick="switchTab('ast')">
-                            Abstract Syntax Tree
-                        </button>
-                        <button 
-                            class="tab-button" 
-                            role="tab" 
-                            aria-selected="false" 
-                            aria-controls="inheritance-panel" 
-                            id="inheritance-tab"
-                            onclick="switchTab('inheritance')">
-                            Class Inheritance
-                        </button>
-                        <button 
-                            class="tab-button" 
-                            role="tab" 
-                            aria-selected="false" 
-                            aria-controls="callgraph-panel" 
-                            id="callgraph-tab"
-                            onclick="switchTab('callgraph')">
-                            Function Call Graph
-                        </button>
-                        <button 
-                            class="tab-button" 
-                            role="tab" 
-                            aria-selected="false" 
-                            aria-controls="rag-panel" 
-                            id="rag-tab"
-                            onclick="switchTab('rag')">
-                            RAG Query
-                        </button>
-                    </nav>
-                    
-                    <!-- AST Panel -->
-                    <div 
-                        class="tab-panel active" 
-                        role="tabpanel" 
-                        aria-labelledby="ast-tab" 
-                        id="ast-panel">
-                        <div class="panel-header">
-                            <h3>AST Structure</h3>
-                            <div class="controls">
-                                <div class="control-group">
-                                    <label for="ast-view-toggle" class="sr-only">Toggle AST view mode</label>
-                                    <button 
-                                        id="ast-view-toggle"
-                                        onclick="toggleView()" 
-                                        class="btn btn-outline"
-                                        aria-describedby="ast-view-mode">
-                                        🔄 Toggle View
-                                    </button>
-                                    <span id="ast-view-mode" class="view-mode-label">Graph View</span>
-                                </div>
-                                <div class="control-group">
-                                    <button 
-                                        onclick="resetZoom()" 
-                                        class="btn btn-outline"
-                                        aria-label="Reset zoom level">
-                                        🎯 Reset
-                                    </button>
-                                    <div class="zoom-controls">
-                                        <button 
-                                            onclick="zoomIn()" 
-                                            class="btn btn-small"
-                                            aria-label="Zoom in">
-                                            ➕
-                                        </button>
-                                        <button 
-                                            onclick="zoomOut()" 
-                                            class="btn btn-small"
-                                            aria-label="Zoom out">
-                                            ➖
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="visualization-container">
-                            <div id="graphContainer" class="graph-container" aria-label="AST graph visualization"></div>
-                            <pre id="jsonOutput" class="json-output" style="display: none;" aria-label="AST JSON representation"></pre>
-                        </div>
-                    </div>
-                    
-                    <!-- Inheritance Panel -->
-                    <div 
-                        class="tab-panel" 
-                        role="tabpanel" 
-                        aria-labelledby="inheritance-tab" 
-                        id="inheritance-panel">
-                        <div class="panel-header">
-                            <h3>Class Inheritance Hierarchy</h3>
-                            <div class="controls">
-                                <div class="control-group">
-                                    <label for="inheritance-view-toggle" class="sr-only">Toggle inheritance view mode</label>
-                                    <button 
-                                        id="inheritance-view-toggle"
-                                        onclick="toggleInheritanceView()" 
-                                        class="btn btn-outline"
-                                        aria-describedby="inheritance-view-mode">
-                                        🔄 Toggle View
-                                    </button>
-                                    <span id="inheritance-view-mode" class="view-mode-label">Graph View</span>
-                                </div>
-                                <div class="control-group">
-                                    <button 
-                                        onclick="resetInheritanceZoom()" 
-                                        class="btn btn-outline"
-                                        aria-label="Reset inheritance zoom level">
-                                        🎯 Reset
-                                    </button>
-                                    <div class="zoom-controls">
-                                        <button 
-                                            onclick="inheritanceZoomIn()" 
-                                            class="btn btn-small"
-                                            aria-label="Zoom in inheritance view">
-                                            ➕
-                                        </button>
-                                        <button 
-                                            onclick="inheritanceZoomOut()" 
-                                            class="btn btn-small"
-                                            aria-label="Zoom out inheritance view">
-                                            ➖
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="visualization-container">
-                            <div id="inheritanceContainer" class="graph-container" aria-label="Class inheritance graph"></div>
-                            <div id="inheritanceListOutput" class="list-output" style="display: none;" aria-label="Class inheritance list"></div>
-                        </div>
-                    </div>
-
-                    <!-- Call Graph Panel -->
-                    <div 
-                        class="tab-panel" 
-                        role="tabpanel" 
-                        aria-labelledby="callgraph-tab" 
-                        id="callgraph-panel">
-                        <div class="panel-header">
-                            <h3>Function Call Graph</h3>
-                            <div class="controls">
-                                <div class="control-group">
-                                    <label for="callgraph-view-toggle" class="sr-only">Toggle call graph view mode</label>
-                                    <button 
-                                        id="callgraph-view-toggle"
-                                        onclick="toggleCallGraphView()" 
-                                        class="btn btn-outline"
-                                        aria-describedby="callgraph-view-mode">
-                                        🔄 Toggle View
-                                    </button>
-                                    <span id="callgraph-view-mode" class="view-mode-label">Graph View</span>
-                                </div>
-                                <div class="control-group">
-                                    <button 
-                                        onclick="resetCallGraphZoom()" 
-                                        class="btn btn-outline"
-                                        aria-label="Reset call graph zoom level">
-                                        🎯 Reset
-                                    </button>
-                                    <div class="zoom-controls">
-                                        <button 
-                                            onclick="callGraphZoomIn()" 
-                                            class="btn btn-small"
-                                            aria-label="Zoom in call graph view">
-                                            ➕
-                                        </button>
-                                        <button 
-                                            onclick="callGraphZoomOut()" 
-                                            class="btn btn-small"
-                                            aria-label="Zoom out call graph view">
-                                            ➖
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="visualization-container">
-                            <div id="callGraphContainer" class="graph-container" aria-label="Function call graph"></div>
-                            <div id="callGraphListOutput" class="list-output" style="display: none;" aria-label="Function call list"></div>
-                        </div>
-                    </div>
-
-                    <!-- RAG Panel -->
-                    <div 
-                        class="tab-panel" 
-                        role="tabpanel" 
-                        aria-labelledby="rag-tab" 
-                        id="rag-panel">
-                        <div class="panel-header">
-                            <h3>RAG Query Results</h3>
-                            <div class="controls">
-                                <div class="control-group">
-                                    <span class="view-mode-label">Natural Language Search</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="visualization-container">
-                            <div id="ragResultsContainer" class="rag-results-container" aria-label="RAG query results">
-                                <div class="rag-placeholder">
-                                    <h4>🤖 Ask Natural Language Questions</h4>
-                                    <p>Use the query box above to ask questions about your code:</p>
-                                    <ul>
-                                        <li>"Find all classes in the code"</li>
-                                        <li>"Show me error handling functions"</li>
-                                        <li>"How do I create objects?"</li>
-                                        <li>"What functions process data?"</li>
-                                    </ul>
-                                    <p><strong>How it works:</strong> AI semantic search finds the most relevant code snippets to answer your question.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-        </main>
-    </div>
-    
-    <script src="ast.js"></script>
-    <script src="inheritance.js"></script>
-    <script src="callgraph.js"></script>
-    <script src="rag.js"></script>
-    <script>
-        // Tab switching functionality
-        function switchTab(tabName) {
-            // Remove active class from all tabs and panels
-            document.querySelectorAll('.tab-button').forEach(btn => {
-                btn.classList.remove('active');
-                btn.setAttribute('aria-selected', 'false');
-            });
-            document.querySelectorAll('.tab-panel').forEach(panel => {
-                panel.classList.remove('active');
-            });
-            
-            // Add active class to selected tab and panel
-            document.getElementById(tabName + '-tab').classList.add('active');
-            document.getElementById(tabName + '-tab').setAttribute('aria-selected', 'true');
-            document.getElementById(tabName + '-panel').classList.add('active');
-        }
-        
-        // Initialize with sample data when page loads
-        window.onload = function() {
-            extractAST();
-        };
-    </script>
+    <!-- Application JavaScript -->
+    <script type="module" src="/src/app.ts"></script>
 </body>
 </html> 
