@@ -84,11 +84,31 @@ my_dog.fetch()</textarea>
                     </button>
                 </div>
                 
+                <!-- RAG Query Section -->
+                <div class="rag-query-section">
+                    <h3>🤖 RAG Query</h3>
+                    <div class="query-input-container">
+                        <label for="ragQueryInput" class="sr-only">Natural language query input</label>
+                        <input 
+                            id="ragQueryInput" 
+                            type="text"
+                            placeholder="Ask about the code: 'find classes', 'how to create objects', 'error handling'..."
+                            aria-describedby="rag-help">
+                        <button 
+                            onclick="executeRAGQuery()" 
+                            class="btn btn-quaternary"
+                            aria-describedby="rag-help">
+                            🔍 Search
+                        </button>
+                    </div>
+                </div>
+                
                 <div id="status" class="status-message" role="status" aria-live="polite"></div>
                 <div class="help-text">
                     <span id="ast-help">Extract and visualize the Abstract Syntax Tree structure</span><br>
                     <span id="inheritance-help">Extract and visualize class inheritance relationships</span><br>
-                    <span id="callgraph-help">Extract and visualize function call relationships</span>
+                    <span id="callgraph-help">Extract and visualize function call relationships</span><br>
+                    <span id="rag-help">Ask natural language questions about the code using semantic search</span>
                 </div>
             </section>
 
@@ -125,6 +145,15 @@ my_dog.fetch()</textarea>
                             id="callgraph-tab"
                             onclick="switchTab('callgraph')">
                             Function Call Graph
+                        </button>
+                        <button 
+                            class="tab-button" 
+                            role="tab" 
+                            aria-selected="false" 
+                            aria-controls="rag-panel" 
+                            id="rag-tab"
+                            onclick="switchTab('rag')">
+                            RAG Query
                         </button>
                     </nav>
                     
@@ -277,6 +306,37 @@ my_dog.fetch()</textarea>
                             <div id="callGraphListOutput" class="list-output" style="display: none;" aria-label="Function call list"></div>
                         </div>
                     </div>
+
+                    <!-- RAG Panel -->
+                    <div 
+                        class="tab-panel" 
+                        role="tabpanel" 
+                        aria-labelledby="rag-tab" 
+                        id="rag-panel">
+                        <div class="panel-header">
+                            <h3>RAG Query Results</h3>
+                            <div class="controls">
+                                <div class="control-group">
+                                    <span class="view-mode-label">Natural Language Search</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="visualization-container">
+                            <div id="ragResultsContainer" class="rag-results-container" aria-label="RAG query results">
+                                <div class="rag-placeholder">
+                                    <h4>🤖 Ask Natural Language Questions</h4>
+                                    <p>Use the query box above to ask questions about your code:</p>
+                                    <ul>
+                                        <li>"Find all classes in the code"</li>
+                                        <li>"Show me error handling functions"</li>
+                                        <li>"How do I create objects?"</li>
+                                        <li>"What functions process data?"</li>
+                                    </ul>
+                                    <p><strong>How it works:</strong> AI semantic search finds the most relevant code snippets to answer your question.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
         </main>
@@ -285,6 +345,7 @@ my_dog.fetch()</textarea>
     <script src="ast.js"></script>
     <script src="inheritance.js"></script>
     <script src="callgraph.js"></script>
+    <script src="rag.js"></script>
     <script>
         // Tab switching functionality
         function switchTab(tabName) {

@@ -2,9 +2,19 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import ast
 import json
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
 
 app = Flask(__name__)
 CORS(app)
+
+# Initialize the embedding model (will download once, ~90MB)
+try:
+    model = SentenceTransformer('all-MiniLM-L6-v2')
+except Exception as e:
+    print(f"Warning: Could not load sentence-transformers model: {e}")
+    model = None
 
 def ast_to_dict(node):
     """Convert AST node to dictionary representation"""
@@ -158,6 +168,124 @@ def extract_function_calls(tree):
         'calls': calls
     }
 
+def chunk_code_by_ast(code):
+    """Split code into logical chunks using AST parsing"""
+    try:
+        tree = ast.parse(code)
+        chunks = []
+        
+        class ChunkExtractor(ast.NodeVisitor):
+            def visit_FunctionDef(self, node):
+                # Get the function source code
+                lines = code.split('\n')
+                start_line = node.lineno - 1
+                end_line = getattr(node, 'end_lineno', node.lineno) - 1
+                
+                if end_line < len(lines):
+                    content = '\n'.join(lines[start_line:end_line + 1])
+                else:
+                    content = ast.unparse(node) if hasattr(ast, 'unparse') else f"def {node.name}(...):"
+                
+                chunks.append({
+                    'content': content,
+                    'type': 'function',
+                    'name': node.name,
+                    'line_start': node.lineno,
+                    'line_end': getattr(node, 'end_lineno', node.lineno)
+                })
+                self.generic_visit(node)
+            
+            def visit_ClassDef(self, node):
+                # Get the class source code
+                lines = code.split('\n')
+                start_line = node.lineno - 1
+                end_line = getattr(node, 'end_lineno', node.lineno) - 1
+                
+                if end_line < len(lines):
+                    content = '\n'.join(lines[start_line:end_line + 1])
+                else:
+                    content = ast.unparse(node) if hasattr(ast, 'unparse') else f"class {node.name}:"
+                
+                chunks.append({
+                    'content': content,
+                    'type': 'class',
+                    'name': node.name,
+                    'line_start': node.lineno,
+                    'line_end': getattr(node, 'end_lineno', node.lineno)
+                })
+                self.generic_visit(node)
+        
+        ChunkExtractor().visit(tree)
+        
+        # Add global scope if there are statements outside functions/classes
+        global_statements = []
+        lines = code.split('\n')
+        
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Import, ast.ImportFrom, ast.Assign)) and hasattr(node, 'lineno'):
+                # Check if this node is not inside a function or class
+                is_global = True
+                for chunk in chunks:
+                    if chunk['line_start'] <= node.lineno <= chunk['line_end']:
+                        is_global = False
+                        break
+                
+                if is_global and node.lineno <= len(lines):
+                    line_content = lines[node.lineno - 1].strip()
+                    if line_content and line_content not in global_statements:
+                        global_statements.append(line_content)
+        
+        if global_statements:
+            chunks.append({
+                'content': '\n'.join(global_statements),
+                'type': 'global',
+                'name': 'Global scope',
+                'line_start': 1,
+                'line_end': len(global_statements)
+            })
+        
+        return chunks
+        
+    except SyntaxError as e:
+        print(f"Syntax error in chunk_code_by_ast: {e}")
+        return []
+    except Exception as e:
+        print(f"Error in chunk_code_by_ast: {e}")
+        return []
+
+def create_embeddings(code_chunks):
+    """Convert code chunks to embeddings using local model"""
+    if not model:
+        raise Exception("Sentence transformer model not available")
+    
+    embeddings = model.encode(code_chunks)
+    return embeddings
+    
+def semantic_search(query, code_chunks, embeddings, top_k=5):
+    """Perform semantic search on code chunks"""
+    if not model:
+        raise Exception("Sentence transformer model not available")
+    
+    # Convert query to embedding
+    query_embedding = model.encode([query])
+    
+    # Calculate similarity scores
+    similarities = cosine_similarity(query_embedding, embeddings)[0]
+    
+    # Get top-k results
+    top_indices = np.argsort(similarities)[::-1][:top_k]
+    
+    results = []
+    for idx in top_indices:
+        if similarities[idx] > 0.1:  # Minimum relevance threshold
+            results.append({
+                'snippet': code_chunks[idx],
+                'score': float(similarities[idx]),
+                'index': int(idx)
+            })
+    
+    return results
+
 @app.route('/api/ast', methods=['POST'])
 def extract_ast():
     """Extract AST from Python code"""
@@ -253,6 +381,53 @@ def extract_call_graph():
         return jsonify({
             'success': False,
             'error': f'Error processing code: {str(e)}'
+        }), 500
+
+@app.route('/api/rag-query', methods=['POST'])
+def rag_query():
+    """Process natural language query and return relevant code snippets"""
+    try:
+        data = request.get_json()
+        code = data.get('code', '')
+        query = data.get('query', '')
+        
+        if not code or not query:
+            return jsonify({'error': 'Code and query are required'}), 400
+        
+        # 1. Parse and chunk the code using AST
+        chunks = chunk_code_by_ast(code)
+        
+        if not chunks:
+            return jsonify({'error': 'No code chunks found'}), 400
+        
+        # 2. Create embeddings for code chunks (local model)
+        embeddings = create_embeddings([chunk['content'] for chunk in chunks])
+        
+        # 3. Perform semantic search
+        search_results = semantic_search(query, [chunk['content'] for chunk in chunks], embeddings)
+        
+        # 4. Enhance results with metadata
+        enhanced_results = []
+        for result in search_results:
+            chunk_idx = result['index']
+            enhanced_results.append({
+                'snippet': result['snippet'],
+                'score': result['score'],
+                'type': chunks[chunk_idx]['type'],
+                'name': chunks[chunk_idx].get('name', 'Unknown'),
+                'line_start': chunks[chunk_idx].get('line_start'),
+                'line_end': chunks[chunk_idx].get('line_end')
+            })
+        
+        return jsonify({
+            'success': True,
+            'results': enhanced_results
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error processing query: {str(e)}'
         }), 500
 
 @app.route('/api/health', methods=['GET'])

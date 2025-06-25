@@ -151,6 +151,16 @@ body {
     box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
 }
 
+.btn-quaternary {
+    background: linear-gradient(135deg, #e91e63 0%, #9c27b0 100%);
+    color: white;
+}
+
+.btn-quaternary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(233, 30, 99, 0.4);
+}
+
 .btn-outline {
     background: white;
     color: #667eea;
@@ -494,4 +504,231 @@ button:focus,
 .tab-button:focus {
     outline: none;
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3);
+}
+
+/* RAG Query Styles */
+.rag-query-section {
+    background: #f0f4ff;
+    border: 2px solid #e1e8ff;
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.rag-query-section h3 {
+    margin: 0 0 15px 0;
+    color: #495057;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.query-input-container {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+}
+
+.query-input-container input {
+    flex: 1;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    padding: 12px 15px;
+    font-size: 14px;
+    transition: border-color 0.2s ease;
+}
+
+.query-input-container input:focus {
+    outline: none;
+    border-color: #e91e63;
+    box-shadow: 0 0 0 3px rgba(233, 30, 99, 0.1);
+}
+
+.rag-results-container {
+    width: 100%;
+    height: 100%;
+    padding: 20px;
+    overflow-y: auto;
+    background: white;
+}
+
+.rag-placeholder {
+    text-align: center;
+    padding: 40px 20px;
+    color: #6c757d;
+}
+
+.rag-placeholder h4 {
+    margin: 0 0 15px 0;
+    color: #495057;
+    font-size: 1.3rem;
+}
+
+.rag-placeholder ul {
+    text-align: left;
+    max-width: 400px;
+    margin: 20px auto;
+    padding-left: 20px;
+}
+
+.rag-placeholder li {
+    margin: 8px 0;
+    font-style: italic;
+}
+
+.no-results {
+    text-align: center;
+    padding: 40px 20px;
+    color: #6c757d;
+    font-size: 16px;
+}
+
+.results-header {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.results-header h4 {
+    margin: 0 0 5px 0;
+    color: #495057;
+    font-size: 1.2rem;
+}
+
+.results-description {
+    margin: 0;
+    color: #6c757d;
+    font-size: 14px;
+}
+
+.results-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.result-item {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    overflow: hidden;
+    transition: box-shadow 0.2s ease;
+}
+
+.result-item:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.result-header {
+    padding: 15px 20px;
+    background: white;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.result-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 5px;
+}
+
+.type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.type-function {
+    background: #fff3e0;
+    color: #f57c00;
+    border: 1px solid #ffcc02;
+}
+
+.type-class {
+    background: #e3f2fd;
+    color: #1976d2;
+    border: 1px solid #64b5f6;
+}
+
+.type-global {
+    background: #f3e5f5;
+    color: #7b1fa2;
+    border: 1px solid #ba68c8;
+}
+
+.result-name {
+    font-weight: 600;
+    color: #495057;
+    font-size: 16px;
+}
+
+.confidence-score {
+    margin-left: auto;
+    background: #e8f5e8;
+    color: #2e7d32;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.result-meta {
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.result-content {
+    padding: 0;
+}
+
+.code-snippet {
+    margin: 0;
+    background: #f8f9fa;
+    border: none;
+    border-radius: 0;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    overflow-x: auto;
+    padding: 20px;
+}
+
+.code-snippet code {
+    background: none;
+    padding: 0;
+    color: #495057;
+}
+
+/* RAG Responsive Design */
+@media (max-width: 768px) {
+    .rag-query-section {
+        padding: 15px;
+        margin-top: 15px;
+    }
+    
+    .query-input-container {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .query-input-container input {
+        width: 100%;
+    }
+    
+    .result-title {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .confidence-score {
+        margin-left: 0;
+        align-self: flex-start;
+    }
 } 
