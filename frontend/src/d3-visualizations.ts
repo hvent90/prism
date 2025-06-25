@@ -18,10 +18,28 @@ export interface ClassNode {
         params: string[];
         lineno: number;
         docstring?: string;
+        ast_ref?: {
+            node_id: string;
+            line: number;
+            col?: number;
+            end_line: number;
+            end_col?: number;
+            node_type: string;
+            node_path: string[];
+        };
     }[];
     attributes: string[];
     lineno?: number;
     docstring?: string;
+    ast_ref?: {
+        node_id: string;
+        line: number;
+        col?: number;
+        end_line: number;
+        end_col?: number;
+        node_type: string;
+        node_path: string[];
+    };
 }
 
 export interface FunctionNode {
@@ -31,6 +49,15 @@ export interface FunctionNode {
     params?: string[];
     lineno?: number;
     docstring?: string;
+    ast_ref?: {
+        node_id: string;
+        line: number;
+        col?: number;
+        end_line: number;
+        end_col?: number;
+        node_type: string;
+        node_path: string[];
+    };
 }
 
 export interface CallGraphNode extends d3.SimulationNodeDatum {
@@ -39,6 +66,15 @@ export interface CallGraphNode extends d3.SimulationNodeDatum {
     calls: string[];
     called_by: string[];
     group: string;
+    ast_ref?: {
+        node_id: string;
+        line: number;
+        col?: number;
+        end_line: number;
+        end_col?: number;
+        node_type: string;
+        node_path: string[];
+    };
 }
 
 export interface CallGraphLink extends d3.SimulationLinkDatum<CallGraphNode> {
@@ -212,6 +248,16 @@ export class D3Visualizations {
             .attr('class', 'node')
             .attr('transform', (d: any) => `translate(${d.y},${d.x})`);
 
+        // Add AST data attributes to nodes - ensure we pass the actual data with ast_ref
+        nodes.each(function(d: any) {
+            const node = d3.select(this);
+            if (d.data.ast_ref) {
+                node.attr('data-ast-id', d.data.ast_ref.node_id)
+                    .attr('data-ast-line', d.data.ast_ref.line)
+                    .attr('data-ast-type', d.data.ast_ref.node_type);
+            }
+        });
+
         // Add different shapes for classes vs methods vs functions vs root
         nodes.each(function(d: any) {
             const node = d3.select(this);
@@ -372,17 +418,23 @@ export class D3Visualizations {
         });
 
         // Create force simulation data
-        const nodes: CallGraphNode[] = Array.from(functionMap.entries()).map(([name, data]) => ({
-            id: name,
-            name: name,
-            calls: data.calls,
-            called_by: data.called_by,
-            group: this.getFunctionGroup({
+        const nodes: CallGraphNode[] = Array.from(functionMap.entries()).map(([name, data]) => {
+            // Find the original function data to get AST ref
+            const originalFunction = callGraphData.functions.find(fn => fn.name === name);
+            
+            return {
+                id: name,
                 name: name,
                 calls: data.calls,
-                called_by: data.called_by
-            })
-        }));
+                called_by: data.called_by,
+                group: this.getFunctionGroup({
+                    name: name,
+                    calls: data.calls,
+                    called_by: data.called_by
+                }),
+                ast_ref: originalFunction?.ast_ref
+            };
+        });
 
         const links: CallGraphLink[] = [];
         
@@ -416,6 +468,9 @@ export class D3Visualizations {
             .force('y', d3.forceY(height / 2).strength(0.1))
             .force('collision', d3.forceCollide().radius(30));
 
+        // Store simulation reference on the container for highlighting access
+        (container.node() as any).__simulation = simulation;
+
         // Create links
         const link = g.append('g')
             .attr('class', 'links')
@@ -432,10 +487,14 @@ export class D3Visualizations {
             .selectAll('g')
             .data(nodes)
             .enter().append('g')
+            .attr('class', 'node')
             .call(d3.drag<SVGGElement, CallGraphNode>()
                 .on('start', (event, d) => this.dragstarted(event, d, simulation))
                 .on('drag', this.dragged)
                 .on('end', (event, d) => this.dragended(event, d, simulation)));
+
+        // Add AST data attributes to nodes
+        this.enhanceNodesWithASTData(node, nodes);
 
         // Add node circles
         node.append('circle')
@@ -701,7 +760,8 @@ export class D3Visualizations {
             params: fn.params || [],
             paramCount: fn.params ? fn.params.length : 0,
             lineno: fn.lineno,
-            docstring: fn.docstring
+            docstring: fn.docstring,
+            ast_ref: fn.ast_ref
         }));
 
         if (rootClasses.length === 0) {
@@ -728,7 +788,8 @@ export class D3Visualizations {
             params: method.params,
             paramCount: method.params.length,
             lineno: method.lineno,
-            docstring: method.docstring
+            docstring: method.docstring,
+            ast_ref: method.ast_ref
         }));
 
         // Find child classes
@@ -742,6 +803,7 @@ export class D3Visualizations {
             attributeCount: cls.attributes.length,
             lineno: cls.lineno,
             docstring: cls.docstring,
+            ast_ref: cls.ast_ref,
             children: [...methodChildren, ...classChildren]
         };
     }
@@ -874,5 +936,156 @@ export class D3Visualizations {
         if (!event.active) simulation.alphaTarget(0);
         d.fx = null;
         d.fy = null;
+    }
+
+    // AST Coordinate Highlighting Methods
+    
+    /**
+     * Highlight nodes in inheritance visualization based on AST coordinates
+     */
+    public static highlightInheritanceNodes(containerId: string, highlightTargets: any[]): void {
+        const container = d3.select(`#${containerId}`);
+        
+        // Clear previous highlights
+        container.selectAll('.node').classed('highlighted direct-match hierarchical-match temporary-match secondary-match', false);
+        container.selectAll('.node rect, .node circle, .node polygon').style('filter', null).style('stroke', null).style('stroke-width', null);
+        
+        // Apply new highlights
+        highlightTargets.forEach(target => {
+            const selector = `[data-ast-id="${target.nodeId}"]`;
+            let nodes = container.selectAll(selector);
+            
+            // If no nodes found by AST ID, try alternative selectors
+            if (nodes.size() === 0) {
+                // Try selecting by class + matching data attributes
+                const nodeIdParts = target.nodeId.split('_');
+                if (nodeIdParts.length >= 3) {
+                    const nodeType = nodeIdParts[0];
+                    const line = nodeIdParts[1];
+                    nodes = container.selectAll(`.node[data-ast-line="${line}"][data-ast-type="${nodeType}"]`);
+                }
+                
+                // Still no nodes? Try more lenient matching
+                if (nodes.size() === 0) {
+                    const line = nodeIdParts[1];
+                    nodes = container.selectAll(`.node[data-ast-line="${line}"]`);
+                }
+            }
+            
+            if (nodes.size() > 0) {
+                nodes.classed('highlighted', true)
+                     .classed(`${target.highlightStyle}-match`, true);
+                
+                // Add visual effects based on highlight style
+                if (target.highlightStyle === 'direct') {
+                    nodes.select('rect, circle, polygon')
+                         .style('filter', 'drop-shadow(0 0 8px #00ff88)')
+                         .style('stroke', '#00ff88')
+                         .style('stroke-width', '3px');
+                } else if (target.highlightStyle === 'hierarchical') {
+                    nodes.select('rect, circle, polygon')
+                         .style('stroke', '#ffaa00')
+                         .style('stroke-width', '2px');
+                } else if (target.highlightStyle === 'temporary') {
+                    nodes.select('rect, circle, polygon')
+                         .style('filter', 'drop-shadow(0 0 6px #ff00aa)')
+                         .style('stroke', '#ff00aa')
+                         .style('stroke-width', '2px');
+                } else if (target.highlightStyle === 'secondary') {
+                    // Secondary highlighting - more intense effect for hover
+                    nodes.select('rect, circle, polygon')
+                         .style('filter', 'drop-shadow(0 0 12px #00ffff)')
+                         .style('stroke', '#00ffff')
+                         .style('stroke-width', '4px');
+                }
+            }
+        });
+    }
+    
+    /**
+     * Highlight nodes in call graph visualization
+     */
+    public static highlightCallGraphNodes(containerId: string, highlightTargets: any[]): void {
+        const container = d3.select(`#${containerId}`);
+        
+        // Clear previous highlights
+        container.selectAll('.node circle').style('filter', null).style('stroke', null).style('stroke-width', null);
+        container.selectAll('.node').classed('highlighted direct-match hierarchical-match temporary-match secondary-match', false);
+        
+        // Apply highlights
+        highlightTargets.forEach(target => {
+            const selector = `[data-ast-id="${target.nodeId}"]`;
+            let nodes = container.selectAll(selector);
+            
+            // If no nodes found by AST ID, try alternative selectors
+            if (nodes.size() === 0) {
+                // Try selecting by class + matching data attributes
+                const nodeIdParts = target.nodeId.split('_');
+                if (nodeIdParts.length >= 3) {
+                    const nodeType = nodeIdParts[0];
+                    const line = nodeIdParts[1];
+                    nodes = container.selectAll(`.node[data-ast-line="${line}"][data-ast-type="${nodeType}"]`);
+                }
+            }
+            
+            if (nodes.size() > 0) {
+                // Use a more specific approach that doesn't interfere with positioning
+                nodes.classed('highlighted', true)
+                     .classed(`${target.highlightStyle}-match`, true);
+                
+                // Apply highlighting only to the circle elements, not the parent group
+                const circles = nodes.select('circle');
+                
+                if (target.highlightStyle === 'direct') {
+                    circles.style('filter', 'drop-shadow(0 0 10px #00ff88)')
+                           .style('stroke', '#00ff88')
+                           .style('stroke-width', '3px');
+                } else if (target.highlightStyle === 'hierarchical') {
+                    circles.style('stroke', '#ffaa00')
+                           .style('stroke-width', '2px');
+                } else if (target.highlightStyle === 'temporary') {
+                    circles.style('filter', 'drop-shadow(0 0 8px #ff00aa)')
+                           .style('stroke', '#ff00aa')
+                           .style('stroke-width', '2px');
+                } else if (target.highlightStyle === 'secondary') {
+                    // Secondary highlighting - more intense effect for hover
+                    circles.style('filter', 'drop-shadow(0 0 15px #00ffff)')
+                           .style('stroke', '#00ffff')
+                           .style('stroke-width', '4px');
+                }
+                
+                // Ensure the simulation continues to run properly after highlighting
+                const simulation = (container.node() as any).__simulation;
+                if (simulation) {
+                    // Reheat the simulation slightly to ensure positioning continues
+                    simulation.alpha(Math.max(simulation.alpha(), 0.1)).restart();
+                }
+            }
+        });
+    }
+    
+    /**
+     * Clear all highlights from a visualization
+     */
+    public static clearHighlights(containerId: string): void {
+        const container = d3.select(`#${containerId}`);
+        
+        // Remove highlight classes
+        container.selectAll('.node').classed('highlighted direct-match hierarchical-match temporary-match secondary-match', false);
+        
+        // Remove visual effects
+        container.selectAll('.node rect, .node circle, .node polygon')
+                 .style('filter', null)
+                 .style('stroke', null)
+                 .style('stroke-width', null);
+    }
+    
+    /**
+     * Update node creation to include AST data attributes
+     */
+    private static enhanceNodesWithASTData(nodes: any, data: any[]): void {
+        nodes.attr('data-ast-id', (d: any) => d.ast_ref?.node_id)
+             .attr('data-ast-line', (d: any) => d.ast_ref?.line)
+             .attr('data-ast-type', (d: any) => d.ast_ref?.node_type);
     }
 } 

@@ -6,6 +6,15 @@ export interface RAGResult {
     name: string;
     line_start?: number;
     line_end?: number;
+    ast_ref?: {
+        node_id: string;
+        line: number;
+        col?: number;
+        end_line: number;
+        end_col?: number;
+        node_type: string;
+        node_path: string[];
+    };
 }
 
 export class RAGQueryInterface {
@@ -179,8 +188,14 @@ export class RAGQueryInterface {
 
         container.appendChild(resultsList);
 
-        // Results are now only displayed in the RAG panel on the right
-        // The main display area no longer has a RAG tab
+        // Emit event for visualization coordination
+        const event = new CustomEvent('rag-results-displayed', {
+            detail: { results, query }
+        });
+        document.dispatchEvent(event);
+
+        // Add hover listeners to results for temporary highlighting
+        this.addResultHoverListeners(results);
     }
 
     private createResultsHeader(count: number, query: string): HTMLElement {
@@ -380,6 +395,26 @@ export class RAGQueryInterface {
         return div.innerHTML;
     }
 
+    private addResultHoverListeners(results: RAGResult[]): void {
+        const resultItems = document.querySelectorAll('.result-item');
+        
+        resultItems.forEach((item, index) => {
+            item.addEventListener('mouseenter', () => {
+                const event = new CustomEvent('rag-result-hover', {
+                    detail: { result: results[index], action: 'enter' }
+                });
+                document.dispatchEvent(event);
+            });
+            
+            item.addEventListener('mouseleave', () => {
+                const event = new CustomEvent('rag-result-hover', {
+                    detail: { result: results[index], action: 'leave' }
+                });
+                document.dispatchEvent(event);
+            });
+        });
+    }
+
     // Public methods
     public clearResults(): void {
         const container = document.getElementById('rag-results');
@@ -397,6 +432,10 @@ export class RAGQueryInterface {
                 </div>
             `;
         }
+        
+        // Emit clear event for visualization coordination
+        const event = new CustomEvent('rag-results-cleared');
+        document.dispatchEvent(event);
     }
 
     public getHistory(): string[] {

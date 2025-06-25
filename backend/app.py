@@ -5,6 +5,13 @@ import json
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
+from ast_coordinates import (
+    create_ast_reference, 
+    enhance_class_with_ast_refs, 
+    enhance_function_with_ast_refs,
+    create_line_to_ast_mapping,
+    enhance_rag_result_with_ast_ref
+)
 
 app = Flask(__name__)
 
@@ -90,14 +97,16 @@ def extract_class_info(node):
     return None
 
 def extract_classes_from_ast(tree):
-    """Extract all class definitions from AST"""
+    """Extract all class definitions from AST with AST coordinates"""
     classes = []
     
     def visit_node(node):
         if isinstance(node, ast.ClassDef):
             class_info = extract_class_info(node)
             if class_info:
-                classes.append(class_info)
+                # Enhance with AST coordinates
+                enhanced_class = enhance_class_with_ast_refs(class_info, node, tree)
+                classes.append(enhanced_class)
         
         # Recursively visit child nodes
         for child in ast.iter_child_nodes(node):
@@ -107,9 +116,10 @@ def extract_classes_from_ast(tree):
     return classes
 
 def extract_function_calls(tree):
-    """Extract function definitions and their calls from AST"""
+    """Extract function definitions and their calls from AST with AST coordinates"""
     functions = {}
     calls = []
+    function_nodes = {}  # Store AST nodes for enhancement
     
     def get_full_name(node):
         """Get the full name of a function call (e.g., 'obj.method' or 'func')"""
@@ -124,13 +134,15 @@ def extract_function_calls(tree):
         if isinstance(node, ast.FunctionDef):
             # Extract function definition
             params = [arg.arg for arg in node.args.args]
-            functions[node.name] = {
+            function_info = {
                 'name': node.name,
                 'params': params,
                 'calls': [],
                 'lineno': node.lineno,
                 'docstring': ast.get_docstring(node)
             }
+            functions[node.name] = function_info
+            function_nodes[node.name] = node  # Store AST node
             current_function = node.name
         
         elif isinstance(node, ast.Call) and current_function:
@@ -169,8 +181,17 @@ def extract_function_calls(tree):
     # Extract global calls
     extract_global_calls(tree)
     
+    # Enhance functions with AST coordinates
+    enhanced_functions = []
+    for func_name, func_info in functions.items():
+        if func_name in function_nodes:
+            enhanced_func = enhance_function_with_ast_refs(func_info, function_nodes[func_name], tree)
+            enhanced_functions.append(enhanced_func)
+        else:
+            enhanced_functions.append(func_info)
+    
     return {
-        'functions': list(functions.values()),
+        'functions': enhanced_functions,
         'calls': calls
     }
 
@@ -335,19 +356,22 @@ def handle_preflight(endpoint):
     return response
 
 def extract_functions_from_ast(tree):
-    """Extract standalone function definitions from AST"""
+    """Extract standalone function definitions from AST with AST coordinates"""
     functions = []
     
     def visit_node(node):
         # Only extract functions at module level (not inside classes)
         if isinstance(node, ast.FunctionDef):
             params = [arg.arg for arg in node.args.args]
-            functions.append({
+            function_info = {
                 'name': node.name,
                 'params': params,
                 'docstring': ast.get_docstring(node),
                 'lineno': node.lineno
-            })
+            }
+            # Enhance with AST coordinates
+            enhanced_function = enhance_function_with_ast_refs(function_info, node, tree)
+            functions.append(enhanced_function)
         elif isinstance(node, ast.ClassDef):
             # Skip functions inside classes
             pass
@@ -430,7 +454,7 @@ def extract_call_graph():
 
 @app.route('/api/rag-query', methods=['POST'])
 def rag_query():
-    """Process natural language query and return relevant code snippets"""
+    """Process natural language query and return relevant code snippets with AST coordinates"""
     try:
         data = request.get_json()
         code = data.get('code', '')
@@ -439,30 +463,38 @@ def rag_query():
         if not code or not query:
             return jsonify({'error': 'Code and query are required'}), 400
         
-        # 1. Parse and chunk the code using AST
+        # 1. Parse the code into AST for coordinate mapping
+        tree = ast.parse(code)
+        line_mapping = create_line_to_ast_mapping(tree)
+        
+        # 2. Parse and chunk the code using AST
         chunks = chunk_code_by_ast(code)
         
         if not chunks:
             return jsonify({'error': 'No code chunks found'}), 400
         
-        # 2. Create embeddings for code chunks (local model)
+        # 3. Create embeddings for code chunks (local model)
         embeddings = create_embeddings([chunk['content'] for chunk in chunks])
         
-        # 3. Perform semantic search
+        # 4. Perform semantic search
         search_results = semantic_search(query, [chunk['content'] for chunk in chunks], embeddings)
         
-        # 4. Enhance results with metadata
+        # 5. Enhance results with metadata and AST coordinates
         enhanced_results = []
         for result in search_results:
             chunk_idx = result['index']
-            enhanced_results.append({
+            base_result = {
                 'snippet': result['snippet'],
                 'score': result['score'],
                 'type': chunks[chunk_idx]['type'],
                 'name': chunks[chunk_idx].get('name', 'Unknown'),
                 'line_start': chunks[chunk_idx].get('line_start'),
                 'line_end': chunks[chunk_idx].get('line_end')
-            })
+            }
+            
+            # Enhance with AST coordinates
+            enhanced_result = enhance_rag_result_with_ast_ref(base_result, tree, line_mapping)
+            enhanced_results.append(enhanced_result)
         
         return jsonify({
             'success': True,

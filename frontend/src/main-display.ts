@@ -39,6 +39,8 @@ export class MainDisplayManager {
     public switchView(viewName: string): void {
         if (this.currentView === viewName) return;
 
+        const previousView = this.currentView; // Capture before changing
+
         // Deactivate current view
         const currentHandler = this.views.get(this.currentView);
         if (currentHandler && currentHandler.deactivate) {
@@ -63,6 +65,16 @@ export class MainDisplayManager {
             
             this.currentView = viewName;
             this.updateMainTitle(viewName);
+            
+            // Emit view switch event for coordination systems
+            const event = new CustomEvent('visualization-view-switched', {
+                detail: { 
+                    newView: viewName, 
+                    previousView: previousView,
+                    data: this.currentData
+                }
+            });
+            document.dispatchEvent(event);
         }
     }
 
@@ -84,6 +96,15 @@ export class MainDisplayManager {
         const currentHandler = this.views.get(this.currentView);
         if (currentHandler && currentHandler.update) {
             currentHandler.update(data);
+            
+            // Emit data update event for coordination systems
+            const event = new CustomEvent('visualization-data-updated', {
+                detail: { 
+                    view: this.currentView,
+                    data: data
+                }
+            });
+            document.dispatchEvent(event);
         }
     }
 
