@@ -3,6 +3,7 @@
 ## 🚀 **Current Tasks**
 
 ### **High Priority**
+- [ ] **Dashboard UI Redesign**: [02_dashboard_ui_redesign.md](./02_dashboard_ui_redesign.md) - Transform to fullscreen dashboard layout
   
 ## ✅ **Completed Tasks**
 - [x] **AST Visualization** - Complete with graph and JSON views
