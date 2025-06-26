@@ -171,7 +171,7 @@ export class D3Visualizations {
     }
 
     // Inheritance Hierarchy Visualization
-    public static renderInheritance(containerId: string, inheritanceData: { classes: ClassNode[], functions?: any[] }): void {
+    public static renderInheritance(containerId: string, inheritanceData: any): void {
         const container = d3.select(`#${containerId}`);
         container.selectAll('*').remove();
 
@@ -184,8 +184,11 @@ export class D3Visualizations {
         const width = containerNode?.getBoundingClientRect().width || 800;
         const height = containerNode?.getBoundingClientRect().height || 600;
 
+        // Convert API format to internal format
+        const convertedData = this.convertInheritanceData(inheritanceData);
+
         // Create hierarchical data structure with methods and functions as separate nodes
-        const hierarchy = this.buildInheritanceHierarchyWithMethods(inheritanceData.classes, inheritanceData.functions || []);
+        const hierarchy = this.buildInheritanceHierarchyWithMethods(convertedData.classes, convertedData.functions || []);
         if (!hierarchy) {
             this.showNoData(container, 'Inheritance');
             return;
@@ -380,7 +383,7 @@ export class D3Visualizations {
     }
 
     // Call Graph Visualization
-    public static renderCallGraph(containerId: string, callGraphData: { functions: FunctionNode[], calls?: any[] }): void {
+    public static renderCallGraph(containerId: string, callGraphData: any): void {
         const container = d3.select(`#${containerId}`);
         container.selectAll('*').remove();
 
@@ -393,11 +396,14 @@ export class D3Visualizations {
         const width = containerNode?.getBoundingClientRect().width || 800;
         const height = containerNode?.getBoundingClientRect().height || 600;
 
+        // Convert API format to internal format
+        const convertedData = this.convertCallGraphData(callGraphData);
+
         // Build complete function map with called_by relationships
         const functionMap = new Map<string, { calls: string[], called_by: string[] }>();
         
         // Initialize from functions array
-        callGraphData.functions.forEach(fn => {
+        convertedData.functions.forEach(fn => {
             functionMap.set(fn.name, {
                 calls: Array.isArray(fn.calls) ? fn.calls : [],
                 called_by: []
@@ -405,7 +411,7 @@ export class D3Visualizations {
         });
 
         // Add called_by relationships and ensure all called functions exist
-        callGraphData.functions.forEach(fn => {
+        convertedData.functions.forEach(fn => {
             const calls = Array.isArray(fn.calls) ? fn.calls : [];
             calls.forEach(calledFunction => {
                 // Ensure called function exists in map
@@ -420,7 +426,7 @@ export class D3Visualizations {
         // Create force simulation data
         const nodes: CallGraphNode[] = Array.from(functionMap.entries()).map(([name, data]) => {
             // Find the original function data to get AST ref
-            const originalFunction = callGraphData.functions.find(fn => fn.name === name);
+            const originalFunction = convertedData.functions.find(fn => fn.name === name);
             
             return {
                 id: name,
@@ -1087,5 +1093,70 @@ export class D3Visualizations {
         nodes.attr('data-ast-id', (d: any) => d.ast_ref?.node_id)
              .attr('data-ast-line', (d: any) => d.ast_ref?.line)
              .attr('data-ast-type', (d: any) => d.ast_ref?.node_type);
+    }
+
+    /**
+     * Convert API inheritance data format to internal format
+     */
+    private static convertInheritanceData(apiData: any): { classes: ClassNode[], functions: any[] } {
+        const classes: ClassNode[] = apiData.classes.map((cls: any) => ({
+            name: cls.name,
+            bases: cls.bases || [],
+            methods: cls.methods ? cls.methods.map((methodName: string) => ({
+                name: methodName,
+                params: [],
+                lineno: cls.lineno || 0,
+                docstring: undefined,
+                ast_ref: undefined
+            })) : [],
+            attributes: cls.attributes || [],
+            lineno: cls.lineno,
+            docstring: undefined,
+            ast_ref: undefined
+        }));
+
+        return {
+            classes,
+            functions: []
+        };
+    }
+
+    /**
+     * Convert API call graph data format to internal format
+     */
+    private static convertCallGraphData(apiData: any): { functions: FunctionNode[] } {
+        const functions: FunctionNode[] = apiData.functions.map((fn: any) => {
+            // Build calls array from the calls relationships
+            const calls: string[] = [];
+            if (apiData.calls) {
+                apiData.calls.forEach((call: any) => {
+                    if (call.caller === fn.name) {
+                        calls.push(call.callee);
+                    }
+                });
+            }
+
+            // Build called_by array from the calls relationships
+            const called_by: string[] = [];
+            if (apiData.calls) {
+                apiData.calls.forEach((call: any) => {
+                    if (call.callee === fn.name) {
+                        called_by.push(call.caller);
+                    }
+                });
+            }
+
+            return {
+                name: fn.name,
+                calls,
+                called_by,
+                params: fn.args || [],
+                lineno: fn.lineno,
+                docstring: fn.docstring,
+                ast_ref: undefined
+            };
+        });
+
+        return { functions };
     }
 } 
