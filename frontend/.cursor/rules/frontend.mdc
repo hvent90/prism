@@ -1,0 +1,61 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Prism Frontend Architecture
+
+## Overview
+
+The Prism frontend is a modern, single-page application (SPA) built with **vanilla TypeScript** and bundled using **Vite**. It provides a rich, interactive dashboard for code visualization and analysis without relying on a major UI framework like React or Angular.
+
+## UI Architecture: The Dashboard
+
+The UI is a fullscreen, three-panel dashboard layout built with CSS Grid, inspired by modern IDEs.
+
+-   **Left Panel (Code Input)**: Features a **Monaco Editor** instance, providing a rich code editing experience with Python syntax highlighting, a minimap, and other advanced features.
+-   **Center Panel (Main Display)**: The primary visualization area. It's a dynamic panel that can switch between different views:
+    -   Abstract Syntax Tree (AST)
+    -   Class Inheritance Graph
+    -   Function Call Graph
+    -   RAG Search Results
+-   **Right Panel (RAG Query)**: A dedicated interface for users to enter natural language queries about the code. It includes features like query history and an enhanced results display.
+
+The panels are resizable, and their state (e.g., sizes, code content) is persisted across sessions using `localStorage`.
+
+## Core Technologies
+
+-   **Language**: [TypeScript](mdc:https:/www.typescriptlang.org)
+-   **Build Tool**: [Vite](mdc:https:/vitejs.dev)
+-   **Code Editor**: [Monaco Editor](mdc:https:/microsoft.github.io/monaco-editor)
+-   **Data Visualization**: [D3.js](mdc:https:/d3js.org)
+-   **Styling**: Plain CSS, with a heavy reliance on CSS Grid for layout.
+
+## Architectural Patterns
+
+### Event-Driven Cross-Panel Coordination
+
+The frontend uses an event-driven architecture to facilitate communication between its decoupled panels. This is crucial for features like cross-panel highlighting.
+
+1.  **Event Emission**: The RAG interface emits custom DOM events (e.g., `rag-results-displayed`, `rag-result-hover`) when the user interacts with search results.
+2.  **Coordination**: A central `VisualizationCoordinator` listens for these events.
+3.  **Action**: Upon receiving an event, the coordinator uses the **AST coordinate system** to identify corresponding nodes in the other visualization panels (e.g., Inheritance or Call Graph) and triggers a highlighting effect in the D3 visualizations.
+
+This loose coupling makes the system modular and easy to extend.
+
+### AST Coordinate System
+
+The frontend heavily relies on the AST coordinate system provided by the backend.
+
+-   **Data Mapping**: AST coordinates are stored on every node within the D3.js visualization data structures.
+-   **Highlighting**: When a RAG result is selected, its AST coordinate is used to find the exact node(s) to highlight in the main display panel, creating a seamless link between semantic search and structural code visualizations.
+
+## Key Files & Modules (`src/`)
+
+-   `dashboard.ts`: Manages the main dashboard layout, panel initialization, and view switching logic for the central display.
+-   `editor.ts`: Encapsulates all logic for the Monaco Editor instance in the code input panel.
+-   `panels.ts`: Handles the logic for resizable panels and persisting their state.
+-   `d3-visualizations.ts`: Contains all the D3.js code for rendering the AST, inheritance, and call graph visualizations. It includes methods to apply/clear highlights on nodes.
+-   `rag-interface.ts`: Manages the RAG query panel, including making API calls to the backend and rendering results. It is responsible for emitting events to coordinate with other panels.
+-   `ast-coordinator.ts`: A module responsible for mapping RAG results to visualization nodes using the AST coordinate system.
+
