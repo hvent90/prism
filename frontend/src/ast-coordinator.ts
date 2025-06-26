@@ -200,7 +200,6 @@ export class VisualizationCoordinator {
                 if (inheritanceTargets.length > 0) {
                     D3Visualizations.highlightInheritanceNodes('inheritance-visualization', inheritanceTargets);
                     highlightCount = inheritanceTargets.length;
-                    console.log(`Reapplied ${inheritanceTargets.length} inheritance highlights after view switch`);
                 } else {
                     // Clear any existing highlights if no targets for this view
                     D3Visualizations.clearHighlights('inheritance-visualization');
@@ -210,7 +209,6 @@ export class VisualizationCoordinator {
                 if (callGraphTargets.length > 0) {
                     D3Visualizations.highlightCallGraphNodes('callgraph-visualization', callGraphTargets);
                     highlightCount = callGraphTargets.length;
-                    console.log(`Reapplied ${callGraphTargets.length} call graph highlights after view switch`);
                 } else {
                     // Clear any existing highlights if no targets for this view
                     D3Visualizations.clearHighlights('callgraph-visualization');
@@ -241,13 +239,11 @@ export class VisualizationCoordinator {
                 const inheritanceTargets = this.currentPersistentTargets.filter(t => t.type === 'inheritance');
                 if (inheritanceTargets.length > 0) {
                     D3Visualizations.highlightInheritanceNodes('inheritance-visualization', inheritanceTargets);
-                    console.log(`Reapplied ${inheritanceTargets.length} inheritance highlights after data update`);
                 }
             } else if (view === 'callgraph') {
                 const callGraphTargets = this.currentPersistentTargets.filter(t => t.type === 'callgraph');
                 if (callGraphTargets.length > 0) {
                     D3Visualizations.highlightCallGraphNodes('callgraph-visualization', callGraphTargets);
-                    console.log(`Reapplied ${callGraphTargets.length} call graph highlights after data update`);
                 }
                 
                 // Always try to reapply RAG path highlighting for call graph
@@ -289,14 +285,6 @@ export class VisualizationCoordinator {
             });
         });
         
-        console.log('AST Coordinator - Highlighting targets:', {
-            inheritanceTargets: inheritanceTargets.length,
-            callGraphTargets: callGraphTargets.length,
-            analysisData: !!analysisData,
-            callgraphFunctions: analysisData?.callgraph?.functions?.length || 0,
-            ragResults: ragResults.length
-        });
-        
         // Store persistent targets for later restoration
         this.currentPersistentTargets = [...inheritanceTargets, ...callGraphTargets];
         
@@ -317,8 +305,6 @@ export class VisualizationCoordinator {
         
         // Show visual feedback
         this.showHighlightFeedback(`Highlighting ${inheritanceTargets.length + callGraphTargets.length} nodes`);
-        
-        console.log(`Applied persistent highlights to ${inheritanceTargets.length} inheritance nodes and ${callGraphTargets.length} callgraph nodes`);
     }
     
     public clearAllHighlights(): void {
@@ -329,8 +315,6 @@ export class VisualizationCoordinator {
         
         // Show visual feedback
         this.showHighlightFeedback('Highlights cleared', 'cleared');
-        
-        console.log('Cleared all highlights');
     }
     
     private showHighlightFeedback(message: string, type: 'active' | 'cleared' = 'active'): void {
@@ -468,9 +452,6 @@ export class VisualizationCoordinator {
         // Apply RAG path highlighting if we found the data
         if (ragPathData) {
             D3Visualizations.highlightRAGPaths('callgraph-visualization', ragPathData);
-            console.log('Applied RAG path highlighting with data:', ragPathData);
-        } else {
-            console.debug('No RAG path data found for highlighting');
         }
     }
 } 
