@@ -11,6 +11,7 @@ interface UseRAGQueryReturn {
   executeQuery: (queryInput?: string, context?: string) => Promise<void>;
   clearResults: () => void;
   queryHistory: string[];
+  clearHistory: () => void;
 }
 
 export const useRAGQuery = (): UseRAGQueryReturn => {
@@ -53,6 +54,10 @@ export const useRAGQuery = (): UseRAGQueryReturn => {
     setError(null);
   }, []);
 
+  const clearHistory = useCallback(() => {
+    setQueryHistory([]);
+  }, []);
+
   return {
     query,
     setQuery,
@@ -62,5 +67,6 @@ export const useRAGQuery = (): UseRAGQueryReturn => {
     executeQuery,
     clearResults,
     queryHistory,
+    clearHistory,
   };
 }; 

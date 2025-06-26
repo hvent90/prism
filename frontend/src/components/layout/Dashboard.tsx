@@ -64,6 +64,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ className = '' }) => {
     executeQuery,
     clearResults,
     queryHistory,
+    clearHistory,
   } = useRAGQuery();
 
   // Handle keyboard shortcuts
@@ -152,18 +153,76 @@ export const Dashboard: React.FC<DashboardProps> = ({ className = '' }) => {
     </>
   );
 
+  const [showHistory, setShowHistory] = useState(false);
+
+  // Close history dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (showHistory && !target.closest('.history-dropdown-container')) {
+        setShowHistory(false);
+      }
+    };
+
+    if (showHistory) {
+      document.addEventListener('click', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [showHistory]);
+
   const ragControls = (
-    <Button
-      variant="secondary"
-      size="sm"
-      title="Query History"
-      onClick={() => {
-        // Could implement a history dropdown here
-        console.log('Query history:', queryHistory);
-      }}
-    >
-      History
-    </Button>
+    <div className="rag-controls">
+      <div className="history-dropdown-container">
+        <Button
+          variant="secondary"
+          size="sm"
+          title="Query History"
+          onClick={() => setShowHistory(!showHistory)}
+          className={showHistory ? 'active' : ''}
+        >
+          History {queryHistory.length > 0 && `(${queryHistory.length})`}
+        </Button>
+        {showHistory && (
+          <div className="history-dropdown">
+            {queryHistory.length === 0 ? (
+              <div className="history-empty">No query history yet</div>
+            ) : (
+              <>
+                <div className="history-header">Recent Queries</div>
+                {queryHistory.map((historyQuery, index) => (
+                  <button
+                    key={index}
+                    className="history-item"
+                    onClick={() => {
+                      setQuery(historyQuery);
+                      setShowHistory(false);
+                    }}
+                    title={`Click to use: ${historyQuery}`}
+                  >
+                    {historyQuery}
+                  </button>
+                ))}
+                                 <div className="history-footer">
+                   <button
+                     className="history-clear"
+                     onClick={() => {
+                       clearHistory();
+                       setShowHistory(false);
+                     }}
+                     title="Clear all history"
+                   >
+                     Clear History
+                   </button>
+                 </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
   );
 
   return (
