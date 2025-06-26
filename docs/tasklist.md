@@ -12,6 +12,7 @@
 - [x] **RAG Query Visualization**: [01_implement_rag.md](./01_implement_rag.md) - Implement semantic search feature
 - [x] **Dashboard UI Redesign**: [02_dashboard_ui_redesign.md](./02_dashboard_ui_redesign.md) - Transform to fullscreen dashboard layout
 - [X] **React Frontend Rewrite**: [04_react_rewrite.md](./04_react_rewrite.md) - Rewrite frontend in React for better maintainability
+- [X] **Codebase Analaysis**: [05_codebase_analysis.md](./05_codebase_analysis.md) - Backend can analyze an entire codebase
 
 ## 🔮 **Future Tasks**
 - [ ] **RAG Integration with Existing Visualizations** - Highlight relevant nodes

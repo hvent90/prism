@@ -2,6 +2,8 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import ast
 import json
+import os
+import pathlib
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
@@ -45,7 +47,13 @@ def ast_to_dict(node):
             elif isinstance(value, ast.AST):
                 result[field] = ast_to_dict(value)
             else:
-                result[field] = value
+                # Ensure value is JSON serializable
+                if isinstance(value, bytes):
+                    result[field] = value.decode('utf-8', errors='replace')
+                elif hasattr(value, '__dict__'):
+                    result[field] = str(value)
+                else:
+                    result[field] = value
                 
         return result
     return node
@@ -608,6 +616,406 @@ def test_cors():
         'method': request.method,
         'origin': request.headers.get('Origin', 'unknown')
     })
+
+def find_python_files(directory_path, max_files=100, verbose=False):
+    """Find all Python files in a directory (recursively), excluding third-party packages"""
+    python_files = []
+    skipped_dirs = []
+    directory = pathlib.Path(directory_path)
+    
+    if not directory.exists() or not directory.is_dir():
+        return []
+    
+    # Directories to skip (third-party packages, virtual environments, build artifacts)
+    skip_dirs = {
+        'venv', '.venv', 'env', 'virtualenv',  # Virtual environments
+        'site-packages', 'dist-packages',      # Package installations
+        '__pycache__', '.pytest_cache',        # Cache directories
+        'build', 'dist', 'egg-info',           # Build artifacts
+        '.git', '.svn', '.hg',                 # Version control
+        'node_modules',                        # Node.js (might contain Python)
+        '.tox', '.coverage',                   # Testing/coverage tools
+        'htmlcov', 'coverage_html_report',     # Coverage reports
+        '.mypy_cache', '.dmypy.json',          # Type checking cache
+        '.vscode', '.idea', '.pycharm',        # IDE directories
+        'migrations',                          # Django migrations (often auto-generated)
+    }
+    
+    def should_skip_directory(path):
+        """Check if a directory should be skipped"""
+        dir_name = path.name.lower()
+        
+        # Skip if directory name matches skip list
+        if dir_name in skip_dirs:
+            return True
+            
+        # Skip if directory name starts with dot (hidden directories)
+        if dir_name.startswith('.') and dir_name not in {'.', '..'}:
+            return True
+            
+        # Skip if it's a site-packages-like directory
+        if 'site-packages' in str(path).lower():
+            return True
+            
+        # Skip if it's inside a virtual environment
+        path_str = str(path).lower()
+        venv_indicators = ['venv', 'virtualenv', 'env']
+        for indicator in venv_indicators:
+            if f'/{indicator}/' in path_str or f'\\{indicator}\\' in path_str:
+                return True
+                
+        return False
+    
+    try:
+        # Walk through directory tree manually to control skipping
+        for root, dirs, files in os.walk(directory):
+            root_path = pathlib.Path(root)
+            
+            # Skip this directory if it should be skipped
+            if should_skip_directory(root_path):
+                if verbose:
+                    skipped_dirs.append(str(root_path))
+                continue
+                
+            # Remove directories we want to skip from dirs list
+            # This prevents os.walk from descending into them
+            dirs_to_remove = []
+            for d in dirs:
+                if should_skip_directory(root_path / d):
+                    if verbose:
+                        skipped_dirs.append(str(root_path / d))
+                    dirs_to_remove.append(d)
+            
+            for d in dirs_to_remove:
+                dirs.remove(d)
+            
+            # Add Python files from this directory
+            for file in files:
+                if file.endswith('.py') and not file.startswith('.'):
+                    file_path = root_path / file
+                    python_files.append(str(file_path))
+                    
+                    if len(python_files) >= max_files:
+                        if verbose:
+                            print(f"Reached max_files limit ({max_files})")
+                        return python_files, skipped_dirs if verbose else python_files
+        
+        if verbose:
+            print(f"Found {len(python_files)} Python files")
+            if skipped_dirs:
+                print(f"Skipped {len(skipped_dirs)} directories")
+            return python_files, skipped_dirs
+        
+        return python_files
+    except Exception as e:
+        print(f"Error finding Python files: {e}")
+        return [] if not verbose else ([], [])
+
+def read_file_safely(file_path):
+    """Safely read a Python file with error handling"""
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        return content
+    except UnicodeDecodeError:
+        # Try with different encoding
+        try:
+            with open(file_path, 'r', encoding='latin-1') as f:
+                content = f.read()
+            return content
+        except Exception as e:
+            print(f"Error reading file {file_path}: {e}")
+            return None
+    except Exception as e:
+        print(f"Error reading file {file_path}: {e}")
+        return None
+
+def analyze_codebase_files(file_paths):
+    """Analyze multiple Python files and combine results"""
+    combined_results = {
+        'files': [],
+        'combined_inheritance': {
+            'classes': [],
+            'functions': []
+        },
+        'combined_callgraph': {
+            'functions': [],
+            'calls': []
+        },
+        'errors': []
+    }
+    
+    for file_path in file_paths:
+        try:
+            code = read_file_safely(file_path)
+            if code is None:
+                combined_results['errors'].append({
+                    'file': file_path,
+                    'error': 'Could not read file'
+                })
+                continue
+            
+            # Skip empty files
+            if not code.strip():
+                continue
+            
+            # Parse the code into AST
+            tree = ast.parse(code)
+            
+            # Analyze this file
+            ast_dict = ast_to_dict(tree)
+            classes = extract_classes_from_ast(tree)
+            functions = extract_functions_from_ast(tree)
+            call_info = extract_function_calls(tree)
+            
+            # Add file path context to classes and functions
+            for cls in classes:
+                cls['file_path'] = file_path
+            for func in functions:
+                func['file_path'] = file_path
+            for func in call_info['functions']:
+                func['file_path'] = file_path
+            for call in call_info['calls']:
+                call['file_path'] = file_path
+            
+            # Store individual file analysis
+            file_analysis = {
+                'file_path': file_path,
+                'ast': ast_dict,
+                'inheritance': {
+                    'classes': classes,
+                    'functions': functions
+                },
+                'callgraph': {
+                    'functions': call_info['functions'],
+                    'calls': call_info['calls']
+                }
+            }
+            combined_results['files'].append(file_analysis)
+            
+            # Add to combined results
+            combined_results['combined_inheritance']['classes'].extend(classes)
+            combined_results['combined_inheritance']['functions'].extend(functions)
+            combined_results['combined_callgraph']['functions'].extend(call_info['functions'])
+            combined_results['combined_callgraph']['calls'].extend(call_info['calls'])
+            
+        except SyntaxError as e:
+            combined_results['errors'].append({
+                'file': file_path,
+                'error': f'Syntax error: {str(e)}'
+            })
+        except Exception as e:
+            combined_results['errors'].append({
+                'file': file_path,
+                'error': f'Analysis error: {str(e)}'
+            })
+    
+    return combined_results
+
+@app.route('/api/analyze-codebase', methods=['POST'])
+def analyze_codebase():
+    """Analyze an entire codebase from a local directory"""
+    try:
+        data = request.get_json()
+        directory_path = data.get('directory_path', '')
+        max_files = data.get('max_files', 100)  # Limit to prevent overwhelming
+        
+        if not directory_path:
+            return jsonify({'error': 'Directory path is required'}), 400
+        
+        # Security check: ensure the path exists and is a directory
+        if not os.path.exists(directory_path) or not os.path.isdir(directory_path):
+            return jsonify({'error': 'Invalid directory path'}), 400
+        
+        # Find all Python files in the directory
+        python_files, skipped_dirs = find_python_files(directory_path, max_files, verbose=True)
+        
+        if not python_files:
+            return jsonify({
+                'success': True,
+                'message': 'No Python files found in directory',
+                'directory_path': directory_path,
+                'files_analyzed': 0,
+                'files': [],
+                'combined_analysis': {
+                    'inheritance': {'classes': [], 'functions': []},
+                    'callgraph': {'functions': [], 'calls': []}
+                },
+                'errors': [],
+                'skipped_directories': skipped_dirs
+            })
+        
+        # Analyze all the Python files
+        analysis_results = analyze_codebase_files(python_files)
+        
+        # Calculate some statistics
+        total_classes = len(analysis_results['combined_inheritance']['classes'])
+        total_functions = len(analysis_results['combined_inheritance']['functions'])
+        total_calls = len(analysis_results['combined_callgraph']['calls'])
+        
+        return jsonify({
+            'success': True,
+            'directory_path': directory_path,
+            'files_analyzed': len(analysis_results['files']),
+            'files_found': len(python_files),
+            'skipped_directories': skipped_dirs,
+            'statistics': {
+                'total_classes': total_classes,
+                'total_functions': total_functions,
+                'total_calls': total_calls,
+                'files_with_errors': len(analysis_results['errors']),
+                'directories_skipped': len(skipped_dirs)
+            },
+            'files': analysis_results['files'],
+            'combined_analysis': {
+                'inheritance': analysis_results['combined_inheritance'],
+                'callgraph': analysis_results['combined_callgraph']
+            },
+            'errors': analysis_results['errors']
+        })
+        
+    except Exception as e:
+        print(f"Error analyzing codebase: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': f'Error analyzing codebase: {str(e)}'
+        }), 500
+
+@app.route('/api/rag-query-codebase', methods=['POST'])
+def rag_query_codebase():
+    """Process natural language query across an entire codebase directory"""
+    try:
+        data = request.get_json()
+        directory_path = data.get('directory_path', '')
+        query = data.get('query', '')
+        max_files = data.get('max_files', 50)  # Smaller limit for RAG to avoid memory issues
+        
+        if not directory_path or not query:
+            return jsonify({'error': 'Directory path and query are required'}), 400
+        
+        # Security check
+        if not os.path.exists(directory_path) or not os.path.isdir(directory_path):
+            return jsonify({'error': 'Invalid directory path'}), 400
+        
+        # Find all Python files
+        python_files, skipped_dirs = find_python_files(directory_path, max_files, verbose=True)
+        
+        if not python_files:
+            return jsonify({
+                'success': True,
+                'query': query,
+                'directory_path': directory_path,
+                'message': 'No Python files found in directory',
+                'results': [],
+                'skipped_directories': skipped_dirs,
+                'visualization_data': {'inheritance': {'classes': [], 'functions': []}, 'callgraph': {'functions': [], 'calls': []}}
+            })
+        
+        # Collect all code chunks from all files
+        all_chunks = []
+        file_chunk_mapping = []  # Track which chunk belongs to which file
+        
+        for file_path in python_files:
+            code = read_file_safely(file_path)
+            if code and code.strip():
+                try:
+                    # Parse and chunk the code
+                    file_chunks = chunk_code_by_ast(code)
+                    
+                    for chunk in file_chunks:
+                        # Add file context to chunk
+                        chunk['file_path'] = file_path
+                        all_chunks.append(chunk)
+                        file_chunk_mapping.append(file_path)
+                        
+                except Exception as e:
+                    print(f"Error chunking file {file_path}: {e}")
+                    continue
+        
+        if not all_chunks:
+            return jsonify({
+                'success': True,
+                'query': query,
+                'directory_path': directory_path,
+                'message': 'No valid code chunks found',
+                'results': [],
+                'skipped_directories': skipped_dirs,
+                'visualization_data': {'inheritance': {'classes': [], 'functions': []}, 'callgraph': {'functions': [], 'calls': []}}
+            })
+        
+        # Create embeddings for all chunks
+        chunk_contents = [chunk['content'] for chunk in all_chunks]
+        embeddings = create_embeddings(chunk_contents)
+        
+        # Perform semantic search
+        search_results = semantic_search(query, chunk_contents, embeddings, top_k=10)
+        
+        # Enhance results with file context and AST coordinates
+        enhanced_results = []
+        processed_files = set()
+        
+        for result in search_results:
+            chunk_idx = result['index']
+            chunk = all_chunks[chunk_idx]
+            file_path = chunk['file_path']
+            
+            # Read the file for AST processing if not already processed
+            if file_path not in processed_files:
+                code = read_file_safely(file_path)
+                if code:
+                    try:
+                        tree = ast.parse(code)
+                        line_mapping = create_line_to_ast_mapping(tree)
+                        processed_files.add(file_path)
+                    except:
+                        tree = None
+                        line_mapping = {}
+                else:
+                    tree = None
+                    line_mapping = {}
+            
+            base_result = {
+                'snippet': result['snippet'],
+                'score': result['score'],
+                'type': chunk.get('type', 'unknown'),
+                'name': chunk.get('name', 'Unknown'),
+                'line_start': chunk.get('line_start'),
+                'line_end': chunk.get('line_end'),
+                'file_path': file_path
+            }
+            
+            # Enhance with AST coordinates if possible
+            if tree and line_mapping:
+                enhanced_result = enhance_rag_result_with_ast_ref(base_result, tree, line_mapping)
+            else:
+                enhanced_result = base_result
+            
+            enhanced_results.append(enhanced_result)
+        
+        # Get visualization data from analyzed files
+        analysis_results = analyze_codebase_files(python_files)
+        
+        return jsonify({
+            'success': True,
+            'query': query,
+            'directory_path': directory_path,
+            'files_processed': len(python_files),
+            'chunks_processed': len(all_chunks),
+            'results': enhanced_results,
+            'skipped_directories': skipped_dirs,
+            'visualization_data': {
+                'inheritance': analysis_results['combined_inheritance'],
+                'callgraph': analysis_results['combined_callgraph']
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error processing codebase query: {str(e)}'
+        }), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000) 

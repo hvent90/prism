@@ -7,6 +7,7 @@ export { LoadingSpinner } from './common/LoadingSpinner';
 export { Header } from './layout/Header';
 export { Dashboard } from './layout/Dashboard';
 export { StatusBar } from './layout/StatusBar';
+export { ModeSelector } from './layout/ModeSelector';
 
 // Editor components
 export { CodeEditor } from './editor/CodeEditor';
@@ -17,4 +18,8 @@ export { ViewSwitcher } from './visualizations/ViewSwitcher';
 
 // RAG components
 export { QueryInput } from './rag/QueryInput';
-export { ResultsList } from './rag/ResultsList'; 
+export { ResultsList } from './rag/ResultsList';
+
+// Codebase components
+export { DirectorySelector } from './codebase/DirectorySelector';
+export { CodebaseResults } from './codebase/CodebaseResults'; 

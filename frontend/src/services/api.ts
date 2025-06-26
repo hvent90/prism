@@ -1,4 +1,4 @@
-import { AnalysisResult, RAGResult, ComprehensiveAnalysisResult } from '../types/api';
+import { AnalysisResult, RAGResult, ComprehensiveAnalysisResult, CodebaseAnalysisResult, CodebaseRAGResult } from '../types/api';
 
 const API_BASE_URL = 'http://localhost:5000';
 
@@ -38,6 +38,27 @@ class APIService {
     return this.request<ComprehensiveAnalysisResult>('/api/analyze', {
       method: 'POST',
       body: JSON.stringify({ code }),
+    });
+  }
+
+  async analyzeCodebase(directoryPath: string, maxFiles: number = 100): Promise<CodebaseAnalysisResult> {
+    return this.request<CodebaseAnalysisResult>('/api/analyze-codebase', {
+      method: 'POST',
+      body: JSON.stringify({ 
+        directory_path: directoryPath,
+        max_files: maxFiles 
+      }),
+    });
+  }
+
+  async queryCodebaseRAG(directoryPath: string, query: string, maxFiles: number = 50): Promise<CodebaseRAGResult> {
+    return this.request<CodebaseRAGResult>('/api/rag-query-codebase', {
+      method: 'POST',
+      body: JSON.stringify({ 
+        directory_path: directoryPath,
+        query: query,
+        max_files: maxFiles 
+      }),
     });
   }
 

@@ -73,6 +73,7 @@ export interface RAGItem {
   score: number;
   line_start?: number;
   line_end?: number;
+  file_path?: string;
   ast_ref?: {
     col: number;
     end_col: number;
@@ -95,5 +96,66 @@ export interface ComprehensiveAnalysisResult {
     functions: any[];
     calls: any[];
   };
+  error?: string;
+}
+
+export interface CodebaseFileInfo {
+  file_path: string;
+  classes: any[];
+  functions: any[];
+  success: boolean;
+  error?: string;
+}
+
+export interface CodebaseStatistics {
+  total_classes: number;
+  total_functions: number;
+  total_calls: number;
+  files_with_errors: number;
+  directories_skipped: number;
+}
+
+export interface CodebaseAnalysisResult {
+  success: boolean;
+  directory_path: string;
+  files_analyzed: number;
+  files_found: number;
+  skipped_directories: string[];
+  statistics: CodebaseStatistics;
+  files: CodebaseFileInfo[];
+  combined_analysis: {
+    inheritance: {
+      classes: any[];
+      functions: any[];
+    };
+    callgraph: {
+      functions: any[];
+      calls: any[];
+    };
+  };
+  errors: string[];
+  message?: string;
+  error?: string;
+}
+
+export interface CodebaseRAGResult {
+  success: boolean;
+  query: string;
+  directory_path: string;
+  files_processed: number;
+  chunks_processed: number;
+  results: RAGItem[];
+  skipped_directories: string[];
+  visualization_data: {
+    inheritance: {
+      classes: any[];
+      functions: any[];
+    };
+    callgraph: {
+      functions: any[];
+      calls: any[];
+    };
+  };
+  message?: string;
   error?: string;
 } 

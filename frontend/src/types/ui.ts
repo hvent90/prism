@@ -1,5 +1,7 @@
 export type ViewType = 'inheritance' | 'callgraph';
 
+export type AnalysisMode = 'code' | 'codebase';
+
 export interface PanelSizes {
   code: number;
   main: number;
@@ -31,4 +33,9 @@ export const DEFAULT_PANEL_SIZES: PanelSizes = {
 export const VIEW_TITLES: Record<ViewType, string> = {
   inheritance: '🏗️ Class Inheritance',
   callgraph: '🔗 Function Call Graph'
+};
+
+export const ANALYSIS_MODE_TITLES: Record<AnalysisMode, string> = {
+  code: '📝 Code Input',
+  codebase: '📁 Codebase Analysis'
 }; 
