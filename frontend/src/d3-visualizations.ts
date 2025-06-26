@@ -194,17 +194,53 @@ export class D3Visualizations {
             return;
         }
 
-        // Create tree layout with more space for methods and functions
-        const tree = d3.tree<any>().size([height - 100, width - 200]).separation((a, b) => {
-            return a.parent === b.parent ? 1 : 2;
-        });
+        // Create hierarchy first to get node count
         const root = d3.hierarchy(hierarchy);
+        
+        // Create tree layout with dynamic spacing based on node count and types
+        const nodeCount = root.descendants().length;
+        const adjustedHeight = Math.max(height - 100, nodeCount * 60); // Minimum 60px per node vertically
+        const adjustedWidth = Math.max(width - 200, nodeCount * 40); // Minimum 40px per node horizontally
+        
+        const tree = d3.tree<any>().size([adjustedHeight, adjustedWidth]).separation((a, b) => {
+            // Dynamic separation based on node types and relationship
+            const aType = a.data.type;
+            const bType = b.data.type;
+            
+            // Base separation
+            let separation = a.parent === b.parent ? 1.5 : 3;
+            
+            // Increase separation for classes (they're wider rectangles)
+            if (aType === 'class' || bType === 'class') {
+                separation += 1;
+            }
+            
+            // Extra space between different node types
+            if (aType !== bType) {
+                separation += 0.5;
+            }
+            
+            // More space for nodes with many children
+            if (a.children && a.children.length > 3) {
+                separation += 0.5;
+            }
+            if (b.children && b.children.length > 3) {
+                separation += 0.5;
+            }
+            
+            return separation;
+        });
+        
         const treeData = tree(root);
 
-        // Create SVG
+        // Create SVG with dynamic dimensions based on tree size
+        const svgWidth = Math.max(width, adjustedWidth + 200);
+        const svgHeight = Math.max(height, adjustedHeight + 100);
+        
         const svg = container.append('svg')
-            .attr('width', width)
-            .attr('height', height)
+            .attr('width', svgWidth)
+            .attr('height', svgHeight)
+            .attr('viewBox', `0 0 ${svgWidth} ${svgHeight}`)
             .append('g')
             .attr('transform', `translate(100,50)`);
 
@@ -282,11 +318,14 @@ export class D3Visualizations {
                     .style('fill', 'white')
                     .text(d.data.name);
             } else if (d.data.type === 'class') {
-                // Class nodes - rectangles
+                // Class nodes - rectangles with dynamic width based on text length
+                const textLength = d.data.name.length;
+                const rectWidth = Math.max(140, textLength * 8 + 20); // Minimum 140px, scale with text
+                
                 node.append('rect')
-                    .attr('width', 140)
+                    .attr('width', rectWidth)
                     .attr('height', 50)
-                    .attr('x', -70)
+                    .attr('x', -rectWidth/2)
                     .attr('y', -25)
                     .attr('rx', 5)
                     .attr('fill', '#4CAF50')
@@ -379,7 +418,7 @@ export class D3Visualizations {
             });
 
         // Add legend
-        this.addInheritanceLegend(container, width, height);
+        this.addInheritanceLegend(container, svgWidth, svgHeight);
     }
 
     // Call Graph Visualization
@@ -949,23 +988,28 @@ export class D3Visualizations {
     // AST Coordinate Highlighting Methods
     
     /**
-     * Highlight nodes in inheritance visualization based on AST coordinates
+     * Highlight nodes in inheritance visualization with enhanced visibility
      */
     public static highlightInheritanceNodes(containerId: string, highlightTargets: any[]): void {
         const container = d3.select(`#${containerId}`);
         
-        // Clear previous highlights
+        // Clear previous highlights and reset all nodes
         container.selectAll('.node').classed('highlighted direct-match hierarchical-match temporary-match secondary-match', false);
         container.selectAll('.node rect, .node circle, .node polygon').style('filter', null).style('stroke', null).style('stroke-width', null);
+        container.selectAll('.node').style('opacity', 1);
+        container.selectAll('.link').style('opacity', 0.6);
         
-        // Apply new highlights
+        if (highlightTargets.length === 0) return;
+        
+        const highlightedNodes: any[] = [];
+        
+        // Apply highlights and collect highlighted nodes
         highlightTargets.forEach(target => {
             const selector = `[data-ast-id="${target.nodeId}"]`;
             let nodes = container.selectAll(selector);
             
             // If no nodes found by AST ID, try alternative selectors
             if (nodes.size() === 0) {
-                // Try selecting by class + matching data attributes
                 const nodeIdParts = target.nodeId.split('_');
                 if (nodeIdParts.length >= 3) {
                     const nodeType = nodeIdParts[0];
@@ -981,53 +1025,103 @@ export class D3Visualizations {
             }
             
             if (nodes.size() > 0) {
+                nodes.each(function(d: any) {
+                    highlightedNodes.push(d);
+                });
+                
+                // Bring highlighted nodes to front
+                nodes.raise();
+                
                 nodes.classed('highlighted', true)
                      .classed(`${target.highlightStyle}-match`, true);
                 
-                // Add visual effects based on highlight style
+                // Enhanced visual effects for highlighted nodes
                 if (target.highlightStyle === 'direct') {
                     nodes.select('rect, circle, polygon')
-                         .style('filter', 'drop-shadow(0 0 8px #00ff88)')
+                         .style('filter', 'drop-shadow(0 0 20px #00ff88)')
                          .style('stroke', '#00ff88')
-                         .style('stroke-width', '3px');
+                         .style('stroke-width', '4px');
                 } else if (target.highlightStyle === 'hierarchical') {
                     nodes.select('rect, circle, polygon')
                          .style('stroke', '#ffaa00')
-                         .style('stroke-width', '2px');
+                         .style('stroke-width', '3px')
+                         .style('filter', 'drop-shadow(0 0 15px #ffaa00)');
                 } else if (target.highlightStyle === 'temporary') {
                     nodes.select('rect, circle, polygon')
-                         .style('filter', 'drop-shadow(0 0 6px #ff00aa)')
+                         .style('filter', 'drop-shadow(0 0 18px #ff00aa)')
                          .style('stroke', '#ff00aa')
-                         .style('stroke-width', '2px');
+                         .style('stroke-width', '3px');
                 } else if (target.highlightStyle === 'secondary') {
-                    // Secondary highlighting - more intense effect for hover
                     nodes.select('rect, circle, polygon')
-                         .style('filter', 'drop-shadow(0 0 12px #00ffff)')
+                         .style('filter', 'drop-shadow(0 0 25px #00ffff)')
                          .style('stroke', '#00ffff')
-                         .style('stroke-width', '4px');
+                         .style('stroke-width', '5px');
                 }
             }
         });
+        
+        // Dim non-highlighted nodes for better contrast
+        container.selectAll('.node:not(.highlighted)')
+                 .style('opacity', 0.3);
+        
+        // Dim non-highlighted links
+        container.selectAll('.link')
+                 .style('opacity', 0.1);
+        
+        // Highlight connections between highlighted nodes and their relationships
+        container.selectAll('.link')
+                 .style('opacity', function(d: any) {
+                     // For tree structures, d might not have source/target like force graphs
+                     // Check if this link connects to any highlighted nodes
+                     const linkElement = d3.select(this);
+                     const pathData = linkElement.attr('d');
+                     
+                     // Simple approach: if any nodes are highlighted, show connections more prominently
+                     if (highlightedNodes.length > 0) {
+                         return 0.8; // Show all connections more prominently when nodes are highlighted
+                     }
+                     return 0.1;
+                 })
+                 .style('stroke', function(d: any) {
+                     if (highlightedNodes.length > 0) {
+                         return '#00ff88'; // Highlight color for connections when nodes are highlighted
+                     }
+                     return '#ccc'; // Default color
+                 })
+                 .style('stroke-width', function(d: any) {
+                     if (highlightedNodes.length > 0) {
+                         return 3; // Thicker lines when nodes are highlighted
+                     }
+                     return 2; // Default thickness
+                 });
+        
+
     }
     
     /**
-     * Highlight nodes in call graph visualization
+     * Highlight nodes in call graph visualization with enhanced visibility
      */
     public static highlightCallGraphNodes(containerId: string, highlightTargets: any[]): void {
         const container = d3.select(`#${containerId}`);
+        const simulation = (container.node() as any).__simulation;
         
-        // Clear previous highlights
+        // Clear previous highlights and reset all nodes
         container.selectAll('.node circle').style('filter', null).style('stroke', null).style('stroke-width', null);
         container.selectAll('.node').classed('highlighted direct-match hierarchical-match temporary-match secondary-match', false);
+        container.selectAll('.node').style('opacity', 1);
+        container.selectAll('.links line').style('opacity', 0.6);
         
-        // Apply highlights
+        if (highlightTargets.length === 0) return;
+        
+        const highlightedNodes: any[] = [];
+        
+        // Apply highlights and collect highlighted nodes
         highlightTargets.forEach(target => {
             const selector = `[data-ast-id="${target.nodeId}"]`;
             let nodes = container.selectAll(selector);
             
             // If no nodes found by AST ID, try alternative selectors
             if (nodes.size() === 0) {
-                // Try selecting by class + matching data attributes
                 const nodeIdParts = target.nodeId.split('_');
                 if (nodeIdParts.length >= 3) {
                     const nodeType = nodeIdParts[0];
@@ -1037,39 +1131,93 @@ export class D3Visualizations {
             }
             
             if (nodes.size() > 0) {
-                // Use a more specific approach that doesn't interfere with positioning
+                nodes.each(function(d: any) {
+                    highlightedNodes.push(d);
+                });
+                
+                // Bring highlighted nodes to front
+                nodes.raise();
+                
                 nodes.classed('highlighted', true)
                      .classed(`${target.highlightStyle}-match`, true);
                 
-                // Apply highlighting only to the circle elements, not the parent group
                 const circles = nodes.select('circle');
                 
+                // Enhanced visual effects for highlighted nodes
                 if (target.highlightStyle === 'direct') {
-                    circles.style('filter', 'drop-shadow(0 0 10px #00ff88)')
+                    circles.style('filter', 'drop-shadow(0 0 20px #00ff88)')
                            .style('stroke', '#00ff88')
-                           .style('stroke-width', '3px');
+                           .style('stroke-width', '4px')
+                           .attr('r', 25); // Increase size
                 } else if (target.highlightStyle === 'hierarchical') {
                     circles.style('stroke', '#ffaa00')
-                           .style('stroke-width', '2px');
+                           .style('stroke-width', '3px')
+                           .style('filter', 'drop-shadow(0 0 15px #ffaa00)')
+                           .attr('r', 23);
                 } else if (target.highlightStyle === 'temporary') {
-                    circles.style('filter', 'drop-shadow(0 0 8px #ff00aa)')
+                    circles.style('filter', 'drop-shadow(0 0 18px #ff00aa)')
                            .style('stroke', '#ff00aa')
-                           .style('stroke-width', '2px');
+                           .style('stroke-width', '3px')
+                           .attr('r', 24);
                 } else if (target.highlightStyle === 'secondary') {
-                    // Secondary highlighting - more intense effect for hover
-                    circles.style('filter', 'drop-shadow(0 0 15px #00ffff)')
+                    circles.style('filter', 'drop-shadow(0 0 25px #00ffff)')
                            .style('stroke', '#00ffff')
-                           .style('stroke-width', '4px');
-                }
-                
-                // Ensure the simulation continues to run properly after highlighting
-                const simulation = (container.node() as any).__simulation;
-                if (simulation) {
-                    // Reheat the simulation slightly to ensure positioning continues
-                    simulation.alpha(Math.max(simulation.alpha(), 0.1)).restart();
+                           .style('stroke-width', '5px')
+                           .attr('r', 28);
                 }
             }
         });
+        
+        // Dim non-highlighted nodes for better contrast
+        container.selectAll('.node:not(.highlighted)')
+                 .style('opacity', 0.3);
+        
+        // Dim non-highlighted links
+        container.selectAll('.links line')
+                 .style('opacity', 0.1);
+        
+        // Highlight connections between highlighted nodes
+        container.selectAll('.links line')
+                 .style('opacity', function(d: any) {
+                     const sourceHighlighted = highlightedNodes.some(n => n.id === d.source.id);
+                     const targetHighlighted = highlightedNodes.some(n => n.id === d.target.id);
+                     if (sourceHighlighted && targetHighlighted) {
+                         return 1; // Full opacity for connections between highlighted nodes
+                     } else if (sourceHighlighted || targetHighlighted) {
+                         return 0.6; // Partial opacity for connections to highlighted nodes
+                     }
+                     return 0.1; // Very dim for other connections
+                 })
+                 .style('stroke', function(d: any) {
+                     const sourceHighlighted = highlightedNodes.some(n => n.id === d.source.id);
+                     const targetHighlighted = highlightedNodes.some(n => n.id === d.target.id);
+                     if (sourceHighlighted && targetHighlighted) {
+                         return '#00ff88'; // Highlight color for inter-highlighted connections
+                     }
+                     return '#999'; // Default color
+                 })
+                 .style('stroke-width', function(d: any) {
+                     const sourceHighlighted = highlightedNodes.some(n => n.id === d.source.id);
+                     const targetHighlighted = highlightedNodes.some(n => n.id === d.target.id);
+                     if (sourceHighlighted && targetHighlighted) {
+                         return 3; // Thicker lines for inter-highlighted connections
+                     }
+                     return 2; // Default thickness
+                 });
+        
+        // Gently reheat the simulation without disrupting existing positions
+        if (simulation) {
+            // Remove any existing highlight force first
+            simulation.force('highlight', null);
+            
+            // Only give the simulation a gentle energy boost if it's nearly stopped
+            const currentAlpha = simulation.alpha();
+            if (currentAlpha < 0.1) {
+                simulation.alpha(Math.max(currentAlpha, 0.1)).restart();
+            }
+        }
+        
+
     }
     
     /**
@@ -1077,15 +1225,91 @@ export class D3Visualizations {
      */
     public static clearHighlights(containerId: string): void {
         const container = d3.select(`#${containerId}`);
+        const simulation = (container.node() as any).__simulation;
         
         // Remove highlight classes
         container.selectAll('.node').classed('highlighted direct-match hierarchical-match temporary-match secondary-match', false);
         
-        // Remove visual effects
+        // Reset visual effects
         container.selectAll('.node rect, .node circle, .node polygon')
                  .style('filter', null)
                  .style('stroke', null)
-                 .style('stroke-width', null);
+                 .style('stroke-width', null)
+                 .attr('r', function(d: any) {
+                     // Reset circle radius to default
+                     return 20;
+                 });
+        
+        // Reset opacity for all nodes
+        container.selectAll('.node').style('opacity', 1);
+        
+        // Reset links for both call graphs (lines) and inheritance graphs (paths)
+        container.selectAll('.links line')
+                 .style('opacity', 0.6)
+                 .style('stroke', '#999')
+                 .style('stroke-width', 2);
+        
+        // Reset inheritance graph links (paths)
+        container.selectAll('.link')
+                 .style('opacity', 0.6)
+                 .style('stroke', '#ccc')
+                 .style('stroke-width', 2);
+        
+        // Stop any ongoing animations
+        container.selectAll('.node circle').interrupt();
+        
+        // Reset simulation parameters and remove any temporary forces (for call graphs)
+        if (simulation) {
+            simulation.force('highlight', null);
+            // Only give a gentle boost if the simulation has stopped
+            const currentAlpha = simulation.alpha();
+            if (currentAlpha < 0.05) {
+                simulation.alpha(0.05).restart();
+            }
+        }
+    }
+    
+    /**
+     * Pan to show highlighted nodes (simplified version to avoid TypeScript issues)
+     */
+    private static zoomToFitNodes(container: d3.Selection<any, any, any, any>, nodes: any[]): void {
+        if (nodes.length === 0) return;
+        
+        // Calculate center of highlighted nodes
+        let centerX = 0, centerY = 0;
+        let validNodes = 0;
+        
+        nodes.forEach(node => {
+            if (node.x !== undefined && node.y !== undefined) {
+                centerX += node.x;
+                centerY += node.y;
+                validNodes++;
+            }
+        });
+        
+        if (validNodes === 0) return;
+        
+        centerX /= validNodes;
+        centerY /= validNodes;
+        
+        // Get SVG and container dimensions
+        const svg = container.select('svg');
+        const svgNode = svg.node() as SVGSVGElement;
+        const svgRect = svgNode.getBoundingClientRect();
+        const svgWidth = svgRect.width;
+        const svgHeight = svgRect.height;
+        
+        // Calculate translation to center the highlighted nodes
+        const g = svg.select('g');
+        const currentTransform = d3.zoomTransform(svgNode);
+        
+        const targetX = svgWidth / 2 - centerX * currentTransform.k;
+        const targetY = svgHeight / 2 - centerY * currentTransform.k;
+        
+        // Animate to the new position
+        g.transition()
+         .duration(1500)
+         .attr('transform', `translate(${targetX}, ${targetY}) scale(${currentTransform.k})`);
     }
     
     /**
