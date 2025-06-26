@@ -4,6 +4,9 @@
 
 ### **High Priority**
 - [ ] **AST Coordinate System**: [03_ast_coordinates.md](./03_ast_coordinates.md) - Implement AST-based highlighting for RAG results
+
+### **Medium Priority**
+- [ ] **React Frontend Rewrite**: [04_react_rewrite.md](./04_react_rewrite.md) - Rewrite frontend in React for better maintainability
   
 ## ✅ **Completed Tasks**
 - [x] **AST Visualization** - Complete with graph and JSON views
