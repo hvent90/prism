@@ -1,0 +1,600 @@
+/* React-specific adjustments to work with existing CSS */
+
+/* Override the app styles to work with existing layout */
+.app {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: 100vh;
+  background: #1e1e1e;
+  color: #cccccc;
+}
+
+/* Dashboard should take up remaining space and use existing grid system */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 4px 2fr 4px 1fr;
+  grid-template-rows: 1fr;
+  height: 100%;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.dashboard-grid > .code-panel { grid-column: 1; }
+.dashboard-grid > .resize-handle:nth-of-type(1) { grid-column: 2; grid-row: 1; }
+.dashboard-grid > .main-panel { grid-column: 3; }
+.dashboard-grid > .resize-handle:nth-of-type(2) { grid-column: 4; grid-row: 1; }
+.dashboard-grid > .rag-panel { grid-column: 5; }
+
+/* Ensure panels work with existing system */
+.panel {
+  background: #252526;
+  border-right: 1px solid #3e3e42;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.panel:last-child {
+  border-right: none;
+}
+
+.panel-content {
+  flex: 1;
+  padding: 16px;
+  overflow: auto;
+  background: #1e1e1e;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+}
+
+/* Reduce padding for main panel to give more space to visualizations */
+.main-panel .panel-content {
+  padding: 8px;
+}
+
+/* Header styles */
+.dashboard-header {
+  background: #2d2d30;
+  border-bottom: 1px solid #3e3e42;
+  padding: 12px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #cccccc;
+  flex-shrink: 0;
+}
+
+/* Status bar styles */
+.status-bar {
+  background: #007acc;
+  color: white;
+  padding: 4px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+/* Loading spinner styles */
+.loading-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #3e3e42;
+  border-top: 4px solid #007acc;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.spinner-sm .spinner { width: 20px; height: 20px; border-width: 2px; }
+.spinner-lg .spinner { width: 60px; height: 60px; border-width: 6px; }
+
+.loading-message {
+  margin-top: 1rem;
+  color: #cccccc;
+  font-size: 0.9rem;
+}
+
+/* Error message styles */
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: #3e1a1a;
+  border: 1px solid #6b2c2c;
+  border-radius: 4px;
+  color: #ff6b6b;
+  margin: 1rem;
+}
+
+.error-icon {
+  font-size: 1.2rem;
+}
+
+/* Query input styles - Cursor-like layout with button in footer */
+.query-input-wrapper {
+  border: 1px solid #3e3e42;
+  border-radius: 8px;
+  background: #1e1e1e;
+  transition: border-color 0.2s ease;
+  overflow: hidden;
+}
+
+.query-input-wrapper:focus-within {
+  border-color: #007acc;
+  box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+}
+
+.query-input {
+  width: 100%;
+  resize: none;
+  min-height: 80px;
+  max-height: 200px;
+  background: transparent;
+  border: none;
+  color: #cccccc;
+  padding: 12px 12px 8px 12px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.4;
+  outline: none;
+  display: block;
+}
+
+.query-input-section textarea {
+  background: transparent;
+  border: none;
+  resize: none;
+}
+
+.query-input::placeholder {
+  color: #666;
+}
+
+.query-input-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 8px 12px;
+  background: transparent;
+}
+
+.query-submit-btn {
+  min-width: 50px;
+  height: 28px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 6px;
+  background: #007acc;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.query-submit-btn:hover:not(:disabled) {
+  background: #1177bb;
+  /* transform: scale(1.05); */
+}
+
+.query-submit-btn:active:not(:disabled) {
+  /* transform: scale(0.95); */
+}
+
+.query-submit-btn:disabled {
+  background: #3e3e42;
+  color: #666;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.query-submit-btn .search-icon,
+.query-submit-btn .loading-icon {
+  display: block;
+  line-height: 1;
+}
+
+.query-submit-btn .loading-icon {
+  animation: spin 1s linear infinite;
+}
+
+/* RAG content layout */
+.rag-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.query-input-section {
+  flex-shrink: 0;
+  margin-bottom: 1rem;
+}
+
+.query-label {
+  display: block;
+  margin-bottom: 8px;
+  color: #cccccc;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.results-section {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* Results styles */
+.rag-results {
+  height: 100%;
+  overflow-y: auto;
+}
+
+.rag-result-item {
+  border: 1px solid #3e3e42;
+  border-radius: 4px;
+  padding: 1rem;
+  margin-bottom: 0.5rem;
+  background: #2d2d30;
+}
+
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.result-type {
+  font-weight: bold;
+  font-size: 0.9rem;
+  color: #cccccc;
+}
+
+.result-relevance {
+  font-size: 0.8rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+  color: white;
+}
+
+.result-relevance.high { background: #28a745; }
+.result-relevance.medium { background: #ffc107; color: #000; }
+.result-relevance.low { background: #6c757d; }
+
+.result-name {
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  color: #cccccc;
+}
+
+.result-content {
+  font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
+  background: #1e1e1e;
+  padding: 0.5rem;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  color: #cccccc;
+  border: 1px solid #3e3e42;
+}
+
+.result-context {
+  font-size: 0.85rem;
+  color: #999;
+  margin-bottom: 0.25rem;
+}
+
+.result-line {
+  font-size: 0.8rem;
+  color: #666;
+}
+
+/* Visualization placeholder */
+.visualization-placeholder {
+  padding: 2rem;
+  text-align: center;
+  border: 2px dashed #3e3e42;
+  border-radius: 8px;
+  margin: 1rem;
+  color: #cccccc;
+}
+
+.visualization-container {
+  height: 100%;
+  width: 100%;
+  overflow: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.analysis-display {
+  height: 100%;
+  width: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Code editor wrapper */
+.code-editor-wrapper {
+  height: 100%;
+  border: 1px solid #3e3e42;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.editor-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: #cccccc;
+}
+
+/* Resize handles */
+.resize-handle.resize-vertical {
+  width: 4px;
+  min-width: 4px;
+  max-width: 4px;
+  height: 100%;
+  background: #23272e;
+  cursor: col-resize;
+  transition: background 0.2s;
+  z-index: 100;
+}
+
+.resize-handle.resize-vertical:hover {
+  background: #007acc;
+}
+
+/* D3 Visualization Styles */
+.d3-visualization-wrapper {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface-color);
+  position: relative;
+  width: 100% !important;
+  height: 100% !important;
+  flex: 1;
+  min-height: 0;
+}
+
+.d3-visualization-wrapper svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* AST Visualization */
+.ast-container {
+  background: var(--surface-color);
+}
+
+.ast-container .link {
+  fill: none;
+  stroke: var(--text-muted);
+  stroke-width: 2px;
+}
+
+.ast-container .node circle {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ast-container .node circle:hover {
+  stroke-width: 3px;
+  filter: brightness(1.2);
+}
+
+.ast-container .node text {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  fill: var(--text-color);
+  pointer-events: none;
+}
+
+/* Inheritance Visualization */
+.inheritance-container {
+  background: var(--surface-color);
+}
+
+.inheritance-container .link {
+  fill: none;
+  stroke-width: 2px;
+  transition: all 0.2s ease;
+}
+
+.inheritance-container .node {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.inheritance-container .node:hover {
+  filter: brightness(1.1);
+}
+
+.inheritance-container .node text {
+  font-family: var(--font-mono);
+  fill: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+
+/* Call Graph Visualization */
+.callgraph-container {
+  background: var(--surface-color);
+}
+
+.callgraph-container .links line {
+  stroke-opacity: 0.6;
+  transition: all 0.2s ease;
+}
+
+.callgraph-container .links line:hover {
+  stroke-opacity: 1;
+  stroke-width: 3px;
+}
+
+.callgraph-container .nodes .node {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.callgraph-container .nodes .node:hover {
+  filter: brightness(1.1);
+}
+
+.callgraph-container .nodes .node circle {
+  transition: all 0.2s ease;
+}
+
+.callgraph-container .nodes .node text {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: bold;
+  fill: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+
+/* Highlighted nodes */
+.node.highlighted {
+  z-index: 10;
+}
+
+.node.direct-match circle,
+.node.direct-match rect,
+.node.direct-match polygon {
+  filter: drop-shadow(0 0 8px #00ff88);
+  stroke: #00ff88 !important;
+  stroke-width: 3px !important;
+}
+
+.node.hierarchical-match circle,
+.node.hierarchical-match rect,
+.node.hierarchical-match polygon {
+  stroke: #ffaa00 !important;
+  stroke-width: 2px !important;
+}
+
+.node.temporary-match circle,
+.node.temporary-match rect,
+.node.temporary-match polygon {
+  filter: drop-shadow(0 0 6px #ff00aa);
+  stroke: #ff00aa !important;
+  stroke-width: 2px !important;
+}
+
+.node.secondary-match circle,
+.node.secondary-match rect,
+.node.secondary-match polygon {
+  filter: drop-shadow(0 0 12px #00ffff);
+  stroke: #00ffff !important;
+  stroke-width: 4px !important;
+}
+
+/* No data message */
+.no-data-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.no-data-message h4 {
+  margin: 0 0 1rem 0;
+  color: var(--text-color);
+  font-size: 1.2rem;
+}
+
+.no-data-message p {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+/* Legend styles */
+.legend {
+  font-family: var(--font-mono);
+}
+
+.legend .legend-item {
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.legend .legend-item:hover {
+  opacity: 0.8;
+}
+
+.legend text {
+  font-size: 12px;
+  fill: var(--text-color);
+}
+
+.inheritance-legend {
+  font-family: var(--font-mono);
+}
+
+.inheritance-legend .legend-item {
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.inheritance-legend .legend-item:hover {
+  opacity: 0.8;
+}
+
+.inheritance-legend text {
+  font-size: 12px;
+  fill: var(--text-color);
+}
+
+/* Specific container styles for each visualization type */
+#ast-viz-container,
+#inheritance-viz-container,
+#callgraph-viz-container {
+  width: 100% !important;
+  height: 100% !important;
+  flex: 1;
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+}
+
+#ast-viz-container > div,
+#inheritance-viz-container > div,
+#callgraph-viz-container > div {
+  width: 100% !important;
+  height: 100% !important;
+  flex: 1;
+} 
