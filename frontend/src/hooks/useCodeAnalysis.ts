@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { AnalysisResult } from '../types/api';
+import { AnalysisResult, ComprehensiveAnalysisResult } from '../types/api';
 import { apiService } from '../services/api';
 
 interface UseCodeAnalysisReturn {
@@ -29,11 +29,25 @@ export const useCodeAnalysis = (initialCode: string = ''): UseCodeAnalysisReturn
     setError(null);
     
     try {
-      const result = await apiService.analyzeCode(codeToAnalyze);
-      setAnalysis(result);
+      const result = await apiService.analyzeComprehensive(codeToAnalyze);
       
-      if (result.error) {
-        setError(result.error);
+      if (result.success) {
+        // Transform the comprehensive result to match the expected AnalysisResult format
+        const transformedResult: AnalysisResult = {
+          ast: result.ast || [],
+          inheritance: {
+            classes: result.inheritance?.classes || [],
+            relationships: [] // Transform this if needed
+          },
+          callGraph: {
+            functions: result.callgraph?.functions || [],
+            calls: result.callgraph?.calls || []
+          }
+        };
+        
+        setAnalysis(transformedResult);
+      } else {
+        setError(result.error || 'Analysis failed');
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to analyze code';

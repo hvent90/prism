@@ -512,6 +512,53 @@ def health_check():
     """Health check endpoint"""
     return jsonify({'status': 'healthy', 'service': 'prism-backend'})
 
+@app.route('/api/analyze', methods=['POST'])
+def analyze_code():
+    """Comprehensive code analysis combining AST, inheritance, and call graph"""
+    try:
+        data = request.get_json()
+        code = data.get('code', '')
+        
+        if not code:
+            return jsonify({'error': 'No code provided'}), 400
+        
+        # Parse the code into AST once
+        tree = ast.parse(code)
+        
+        # 1. Extract AST structure
+        ast_dict = ast_to_dict(tree)
+        
+        # 2. Extract class inheritance hierarchy and standalone functions
+        classes = extract_classes_from_ast(tree)
+        functions = extract_functions_from_ast(tree)
+        
+        # 3. Extract function call graph
+        call_info = extract_function_calls(tree)
+        
+        return jsonify({
+            'success': True,
+            'ast': ast_dict,
+            'inheritance': {
+                'classes': classes,
+                'functions': functions
+            },
+            'callgraph': {
+                'functions': call_info['functions'],
+                'calls': call_info['calls']
+            }
+        })
+        
+    except SyntaxError as e:
+        return jsonify({
+            'success': False,
+            'error': f'Syntax error: {str(e)}'
+        }), 400
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error processing code: {str(e)}'
+        }), 500
+
 @app.route('/api/test-cors', methods=['GET', 'POST'])
 def test_cors():
     """Test endpoint to verify CORS is working"""

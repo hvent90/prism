@@ -1,4 +1,4 @@
-import { AnalysisResult, RAGResult } from '../types/api';
+import { AnalysisResult, RAGResult, ComprehensiveAnalysisResult } from '../types/api';
 
 const API_BASE_URL = 'http://localhost:5000';
 
@@ -30,7 +30,14 @@ class APIService {
   async queryRAG(query: string, codeContext?: string): Promise<RAGResult> {
     return this.request<RAGResult>('/api/rag-query', {
       method: 'POST',
-      body: JSON.stringify({ query, context: codeContext }),
+      body: JSON.stringify({ query, code: codeContext }),
+    });
+  }
+
+  async analyzeComprehensive(code: string): Promise<ComprehensiveAnalysisResult> {
+    return this.request<ComprehensiveAnalysisResult>('/api/analyze', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
     });
   }
 

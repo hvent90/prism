@@ -64,4 +64,18 @@ export interface RAGItem {
   relevance: number;
   context: string;
   line?: number;
+}
+
+export interface ComprehensiveAnalysisResult {
+  success: boolean;
+  ast?: any;
+  inheritance?: {
+    classes: any[];
+    functions: any[];
+  };
+  callgraph?: {
+    functions: any[];
+    calls: any[];
+  };
+  error?: string;
 } 

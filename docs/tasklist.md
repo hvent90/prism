@@ -1,12 +1,6 @@
 # Prism Development Task List
 
 ## 🚀 **Current Tasks**
-
-### **High Priority**
-- [ ] **AST Coordinate System**: [03_ast_coordinates.md](./03_ast_coordinates.md) - Implement AST-based highlighting for RAG results
-
-### **Medium Priority**
-- [ ] **React Frontend Rewrite**: [04_react_rewrite.md](./04_react_rewrite.md) - Rewrite frontend in React for better maintainability
   
 ## ✅ **Completed Tasks**
 - [x] **AST Visualization** - Complete with graph and JSON views
@@ -17,6 +11,7 @@
 - [x] **Backend API** - Flask server with multiple endpoints
 - [x] **RAG Query Visualization**: [01_implement_rag.md](./01_implement_rag.md) - Implement semantic search feature
 - [x] **Dashboard UI Redesign**: [02_dashboard_ui_redesign.md](./02_dashboard_ui_redesign.md) - Transform to fullscreen dashboard layout
+- [X] **React Frontend Rewrite**: [04_react_rewrite.md](./04_react_rewrite.md) - Rewrite frontend in React for better maintainability
 
 ## 🔮 **Future Tasks**
 - [ ] **RAG Integration with Existing Visualizations** - Highlight relevant nodes
