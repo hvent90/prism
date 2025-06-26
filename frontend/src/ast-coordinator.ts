@@ -421,6 +421,9 @@ export class VisualizationCoordinator {
                 D3Visualizations.highlightCallGraphNodes('callgraph-visualization', callGraphTargets);
             }
         }
+        
+        // Always restore RAG path highlighting when restoring persistent highlights
+        this.applyRAGPathHighlighting();
     }
     
     private applyRAGPathHighlighting(analysisData?: any): void {
