@@ -14,6 +14,7 @@ from ast_coordinates import (
     create_line_to_ast_mapping,
     enhance_rag_result_with_ast_ref
 )
+from collections import deque, defaultdict
 
 app = Flask(__name__)
 
@@ -534,6 +535,13 @@ def rag_query():
         # Extract function call graph
         call_info = extract_function_calls(tree)
         
+        # 7. Find paths between RAG result nodes in call graph
+        rag_paths = find_paths_between_rag_nodes(
+            enhanced_results, 
+            call_info['functions'], 
+            call_info['calls']
+        )
+        
         return jsonify({
             'success': True,
             'results': enhanced_results,
@@ -544,7 +552,8 @@ def rag_query():
                 },
                 'callgraph': {
                     'functions': call_info['functions'],
-                    'calls': call_info['calls']
+                    'calls': call_info['calls'],
+                    'rag_paths': rag_paths
                 }
             }
         })
@@ -616,6 +625,214 @@ def test_cors():
         'method': request.method,
         'origin': request.headers.get('Origin', 'unknown')
     })
+
+def find_paths_between_rag_nodes(rag_results, call_graph_functions, call_graph_calls, max_depth=5):
+    """
+    Find paths between RAG result nodes in the call graph.
+    
+    Args:
+        rag_results: List of RAG result items with AST references
+        call_graph_functions: Dictionary of function information from call graph
+        call_graph_calls: List of call relationships from call graph
+        max_depth: Maximum path depth to search (default 5)
+    
+    Returns:
+        Dictionary containing matched nodes and discovered paths
+    """
+    try:
+        # Build adjacency lists for bidirectional graph traversal
+        caller_to_callees = defaultdict(list)  # forward edges
+        callee_to_callers = defaultdict(list)  # reverse edges
+        
+        # Create a function name mapping for easier lookup
+        function_name_map = {}
+        for func_info in call_graph_functions:
+            func_name = func_info.get('name', '')
+            class_name = func_info.get('class_name')
+            
+            # Build full function name (including class context if available)
+            full_func_name = f"{class_name}.{func_name}" if class_name else func_name
+            
+            if full_func_name:
+                function_name_map[full_func_name] = func_info
+        
+        # Build the graph from call relationships
+        for call in call_graph_calls:
+            caller = call.get('caller', '')
+            callee = call.get('callee', '')
+            if caller and callee:
+                caller_to_callees[caller].append({
+                    'node': callee,
+                    'call_line': call.get('lineno', 0)
+                })
+                callee_to_callers[callee].append({
+                    'node': caller, 
+                    'call_line': call.get('lineno', 0)
+                })
+        
+        # Match RAG results to call graph nodes by AST reference
+        matched_nodes = []
+        rag_node_to_function = {}
+        
+        for rag_result in rag_results:
+            if not rag_result.get('ast_ref'):
+                continue
+                
+            ast_ref = rag_result['ast_ref']
+            node_id = ast_ref.get('node_id', '')
+            
+            # Try to match with call graph functions (call_graph_functions is a list)
+            for func_info in call_graph_functions:
+                func_name = func_info.get('name', '')
+                class_name = func_info.get('class_name')
+                
+                # Build full function name (including class context if available)
+                full_func_name = f"{class_name}.{func_name}" if class_name else func_name
+                
+                # Check if function has AST reference and matches
+                if func_info.get('ast_ref'):
+                    func_ast_ref = func_info['ast_ref']
+                    if func_ast_ref.get('node_id') == node_id:
+                        matched_nodes.append(node_id)
+                        rag_node_to_function[node_id] = full_func_name
+                        break
+                elif func_info.get('lineno') and ast_ref.get('line'):
+                    # Fallback: match by line number if AST refs not available
+                    if abs(func_info['lineno'] - ast_ref['line']) <= 2:  # Allow small line difference
+                        matched_nodes.append(node_id)
+                        rag_node_to_function[node_id] = full_func_name
+                        break
+        
+        # Find paths between matched nodes using BFS
+        def find_shortest_path(start_func, end_func, max_depth):
+            """Find shortest path between two functions using BFS"""
+            if start_func == end_func:
+                return []
+                
+            # BFS queue: (current_node, path_so_far, current_depth)
+            queue = deque([(start_func, [], 0)])
+            visited = {start_func}
+            
+            while queue:
+                current_func, path, depth = queue.popleft()
+                
+                if depth >= max_depth:
+                    continue
+                
+                # Check both forward and backward edges
+                edges_to_check = []
+                
+                # Forward edges (caller -> callee)
+                for edge in caller_to_callees.get(current_func, []):
+                    edges_to_check.append(('caller_to_callee', edge))
+                
+                # Backward edges (callee -> caller) 
+                for edge in callee_to_callers.get(current_func, []):
+                    edges_to_check.append(('callee_to_caller', edge))
+                
+                for direction, edge in edges_to_check:
+                    next_func = edge['node']
+                    
+                    if next_func == end_func:
+                        # Found target! Build the complete path
+                        complete_path = path + [{
+                            'from': current_func,
+                            'to': next_func,
+                            'call_line': edge['call_line'],
+                            'direction': direction
+                        }]
+                        return complete_path
+                    
+                    if next_func not in visited:
+                        visited.add(next_func)
+                        new_path = path + [{
+                            'from': current_func,
+                            'to': next_func,
+                            'call_line': edge['call_line'],
+                            'direction': direction
+                        }]
+                        queue.append((next_func, new_path, depth + 1))
+            
+            return None  # No path found
+        
+        # Find paths between all pairs of matched RAG functions
+        paths = []
+        matched_functions = list(rag_node_to_function.values())
+        
+        # Track unique intermediate nodes and edges across all paths
+        all_intermediate_nodes = set()
+        all_unique_edges = set()
+        
+        for i, func1 in enumerate(matched_functions):
+            for j, func2 in enumerate(matched_functions):
+                if i != j:  # Don't find path from function to itself
+                    path = find_shortest_path(func1, func2, max_depth)
+                    if path:
+                        # Convert to output format
+                        path_nodes = [func1]
+                        path_edges = []
+                        
+                        for edge in path:
+                            path_nodes.append(edge['to'])
+                            path_edges.append({
+                                'from': edge['from'],
+                                'to': edge['to'],
+                                'call_line': edge['call_line']
+                            })
+                            
+                            # Add edge to unique edges set (using tuple for hashability)
+                            edge_tuple = (edge['from'], edge['to'], edge['call_line'])
+                            all_unique_edges.add(edge_tuple)
+                        
+                        # Add intermediate nodes to unique set (exclude start and end nodes)
+                        intermediate_nodes = path_nodes[1:-1]
+                        all_intermediate_nodes.update(intermediate_nodes)
+                        
+                        # Determine path type
+                        path_type = 'bidirectional'
+                        if all(edge['direction'] == 'caller_to_callee' for edge in path):
+                            path_type = 'caller_to_callee'
+                        elif all(edge['direction'] == 'callee_to_caller' for edge in path):
+                            path_type = 'callee_to_caller'
+                        
+                        paths.append({
+                            'from_node': rag_node_to_function.get(
+                                next((ast_ref for ast_ref, f in rag_node_to_function.items() if f == func1), ''),
+                                func1
+                            ),
+                            'to_node': rag_node_to_function.get(
+                                next((ast_ref for ast_ref, f in rag_node_to_function.items() if f == func2), ''),
+                                func2
+                            ),
+                            'path_nodes': intermediate_nodes,  # intermediate nodes only
+                            'path_edges': path_edges,
+                            'path_length': len(path_edges),
+                            'path_type': path_type
+                        })
+        
+        # Convert unique edges back to list of dictionaries
+        unique_edges_list = [
+            {
+                'from': edge[0],
+                'to': edge[1], 
+                'call_line': edge[2]
+            }
+            for edge in all_unique_edges
+        ]
+        
+        return {
+            'matched_nodes': matched_nodes,
+            'paths': paths,
+            'unique_intermediate_nodes': list(all_intermediate_nodes),
+            'unique_edges': unique_edges_list
+        }
+        
+    except Exception as e:
+        print(f"Error in find_paths_between_rag_nodes: {str(e)}")
+        return {
+            'matched_nodes': [],
+            'paths': []
+        }
 
 def find_python_files(directory_path, max_files=100, verbose=False):
     """Find all Python files in a directory (recursively), excluding third-party packages"""
@@ -997,6 +1214,13 @@ def rag_query_codebase():
         # Get visualization data from analyzed files
         analysis_results = analyze_codebase_files(python_files)
         
+        # Find paths between RAG result nodes in call graph
+        rag_paths = find_paths_between_rag_nodes(
+            enhanced_results,
+            analysis_results['combined_callgraph']['functions'],
+            analysis_results['combined_callgraph']['calls']
+        )
+        
         return jsonify({
             'success': True,
             'query': query,
@@ -1007,7 +1231,11 @@ def rag_query_codebase():
             'skipped_directories': skipped_dirs,
             'visualization_data': {
                 'inheritance': analysis_results['combined_inheritance'],
-                'callgraph': analysis_results['combined_callgraph']
+                'callgraph': {
+                    'functions': analysis_results['combined_callgraph']['functions'],
+                    'calls': analysis_results['combined_callgraph']['calls'],
+                    'rag_paths': rag_paths
+                }
             }
         })
         

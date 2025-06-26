@@ -110,6 +110,21 @@
   100% { transform: rotate(360deg); }
 }
 
+/* @keyframes rag-path-pulse {
+  0% { 
+    stroke-width: 4px;
+    filter: drop-shadow(0 0 8px #ff6b35);
+  }
+  50% { 
+    stroke-width: 6px;
+    filter: drop-shadow(0 0 16px #ff6b35);
+  }
+  100% { 
+    stroke-width: 4px;
+    filter: drop-shadow(0 0 8px #ff6b35);
+  }
+} */
+
 .spinner-sm .spinner { width: 20px; height: 20px; border-width: 2px; }
 .spinner-lg .spinner { width: 60px; height: 60px; border-width: 6px; }
 
@@ -523,6 +538,39 @@
   filter: drop-shadow(0 0 12px #00ffff);
   stroke: #00ffff !important;
   stroke-width: 4px !important;
+}
+
+/* RAG Path Highlighting Styles */
+
+/* Intermediate path nodes - subtle orange glow only, no border */
+.node.path-intermediate circle,
+.node.path-intermediate rect,
+.node.path-intermediate polygon {
+  filter: drop-shadow(0 0 8px #ff6600) !important;
+  opacity: 0.7 !important;
+}
+
+/* Dimmed nodes - reduce opacity but keep original colors */
+.node.dimmed:not(.path-intermediate) circle,
+.node.dimmed:not(.path-intermediate) rect,
+.node.dimmed:not(.path-intermediate) polygon {
+  opacity: 0.3 !important;
+  stroke-width: 1px !important;
+}
+
+/* RAG path edges - bright cyan for maximum visibility */
+.edge.rag-path,
+.links line.rag-path {
+  stroke: #00ffff !important;         /* Bright cyan - highly visible */
+  stroke-width: 7px !important;
+  opacity: 1.0 !important;
+  filter: drop-shadow(0 0 12px #00ffff) !important;
+}
+
+/* Dimmed edges - reduce opacity but keep original colors */
+.edge.dimmed:not(.rag-path),
+.links line.dimmed:not(.rag-path) {
+  opacity: 0.15 !important;
 }
 
 /* No data message */

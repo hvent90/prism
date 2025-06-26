@@ -62,6 +62,16 @@ export interface RAGResult {
     callgraph: {
       functions: any[];
       calls: any[];
+      rag_paths?: {
+        matched_nodes: string[];
+        paths: RAGPath[];
+        unique_intermediate_nodes: string[];
+        unique_edges: {
+          from: string;
+          to: string;
+          call_line: number;
+        }[];
+      };
     };
   };
 }
@@ -83,6 +93,19 @@ export interface RAGItem {
     node_path: string[];
     node_type: string;
   };
+}
+
+export interface RAGPath {
+  from_node: string;
+  to_node: string;
+  path_nodes: string[];
+  path_edges: {
+    from: string;
+    to: string;
+    call_line: number;
+  }[];
+  path_length: number;
+  path_type: 'caller_to_callee' | 'callee_to_caller' | 'bidirectional';
 }
 
 export interface ComprehensiveAnalysisResult {
@@ -154,6 +177,16 @@ export interface CodebaseRAGResult {
     callgraph: {
       functions: any[];
       calls: any[];
+      rag_paths?: {
+        matched_nodes: string[];
+        paths: RAGPath[];
+        unique_intermediate_nodes: string[];
+        unique_edges: {
+          from: string;
+          to: string;
+          call_line: number;
+        }[];
+      };
     };
   };
   message?: string;

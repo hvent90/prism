@@ -501,6 +501,8 @@ export class D3Visualizations {
             .attr('width', width)
             .attr('height', height);
 
+
+
         // Create a container group for zoom/pan
         const g = svg.append('g');
 
@@ -993,6 +995,11 @@ export class D3Visualizations {
     public static highlightInheritanceNodes(containerId: string, highlightTargets: any[]): void {
         const container = d3.select(`#${containerId}`);
         
+        // If container doesn't exist, nothing to highlight
+        if (!container.node()) {
+            return;
+        }
+        
         // Clear previous highlights and reset all nodes
         container.selectAll('.node').classed('highlighted direct-match hierarchical-match temporary-match secondary-match', false);
         container.selectAll('.node rect, .node circle, .node polygon').style('filter', null).style('stroke', null).style('stroke-width', null);
@@ -1005,22 +1012,34 @@ export class D3Visualizations {
         
         // Apply highlights and collect highlighted nodes
         highlightTargets.forEach(target => {
-            const selector = `[data-ast-id="${target.nodeId}"]`;
-            let nodes = container.selectAll(selector);
+            // Skip if target or nodeId is invalid
+            if (!target || !target.nodeId) {
+                return;
+            }
             
-            // If no nodes found by AST ID, try alternative selectors
+            // Use filter instead of CSS selectors to avoid issues with special characters
+            let nodes = container.selectAll('.node').filter(function() {
+                return d3.select(this).attr('data-ast-id') === target.nodeId;
+            });
+            
+            // If no nodes found by AST ID, try alternative matching
             if (nodes.size() === 0) {
                 const nodeIdParts = target.nodeId.split('_');
                 if (nodeIdParts.length >= 3) {
                     const nodeType = nodeIdParts[0];
                     const line = nodeIdParts[1];
-                    nodes = container.selectAll(`.node[data-ast-line="${line}"][data-ast-type="${nodeType}"]`);
+                    nodes = container.selectAll('.node').filter(function() {
+                        const elem = d3.select(this);
+                        return elem.attr('data-ast-line') === line && elem.attr('data-ast-type') === nodeType;
+                    });
                 }
                 
                 // Still no nodes? Try more lenient matching
                 if (nodes.size() === 0) {
                     const line = nodeIdParts[1];
-                    nodes = container.selectAll(`.node[data-ast-line="${line}"]`);
+                    nodes = container.selectAll('.node').filter(function() {
+                        return d3.select(this).attr('data-ast-line') === line;
+                    });
                 }
             }
             
@@ -1103,132 +1122,278 @@ export class D3Visualizations {
      */
     public static highlightCallGraphNodes(containerId: string, highlightTargets: any[]): void {
         const container = d3.select(`#${containerId}`);
-        const simulation = (container.node() as any).__simulation;
+        const containerNode = container.node();
         
-        // Clear previous highlights and reset all nodes
-        container.selectAll('.node circle').style('filter', null).style('stroke', null).style('stroke-width', null);
-        container.selectAll('.node').classed('highlighted direct-match hierarchical-match temporary-match secondary-match', false);
-        container.selectAll('.node').style('opacity', 1);
-        container.selectAll('.links line').style('opacity', 0.6);
+        // If container doesn't exist, nothing to highlight
+        if (!containerNode) {
+            console.debug(`Call graph container '${containerId}' not found - skipping highlight`);
+            return;
+        }
+        
+        // Only proceed if this is actually a call graph container with simulation
+        const simulation = (containerNode as any).__simulation;
+        if (!simulation) {
+            console.debug(`Container '${containerId}' has no simulation - not a call graph`);
+            return;
+        }
+        
+        // Clear previous highlights and reset all nodes (batch operations)
+        const allNodes = container.selectAll('.node');
+        const allCircles = container.selectAll('.node circle');
+        const allLinks = container.selectAll('.links line');
+        
+        // Reset in batches to minimize reflows
+        allCircles.style('filter', null).style('stroke', null).style('stroke-width', null).attr('r', 20);
+        allNodes.classed('highlighted direct-match hierarchical-match temporary-match secondary-match', false)
+                .style('opacity', 1);
+        allLinks.style('opacity', 0.6);
         
         if (highlightTargets.length === 0) return;
         
-        const highlightedNodes: any[] = [];
-        
-        // Apply highlights and collect highlighted nodes
-        highlightTargets.forEach(target => {
-            const selector = `[data-ast-id="${target.nodeId}"]`;
-            let nodes = container.selectAll(selector);
+        // Build lookup maps for efficient selection (avoid repeated DOM queries)
+        const nodesByAstId = new Map();
+        const nodesByLine = new Map();
+        allNodes.each(function(d: any) {
+            const node = d3.select(this);
+            const astId = node.attr('data-ast-id');
+            const astLine = node.attr('data-ast-line');
             
-            // If no nodes found by AST ID, try alternative selectors
-            if (nodes.size() === 0) {
+            if (astId) nodesByAstId.set(astId, { element: this, data: d });
+            if (astLine) {
+                if (!nodesByLine.has(astLine)) nodesByLine.set(astLine, []);
+                nodesByLine.get(astLine).push({ element: this, data: d });
+            }
+        });
+        
+        const highlightedNodes: any[] = [];
+        const nodesToHighlight: Array<{ nodeInfo: { element: Element, data: any }, target: any }> = [];
+        
+        // Collect all nodes to highlight first (avoid DOM manipulation in loop)
+        highlightTargets.forEach(target => {
+            if (!target || !target.nodeId) return;
+            
+            let nodeInfo = nodesByAstId.get(target.nodeId);
+            
+            // Fallback to line-based matching if needed
+            if (!nodeInfo) {
                 const nodeIdParts = target.nodeId.split('_');
                 if (nodeIdParts.length >= 3) {
-                    const nodeType = nodeIdParts[0];
                     const line = nodeIdParts[1];
-                    nodes = container.selectAll(`.node[data-ast-line="${line}"][data-ast-type="${nodeType}"]`);
+                    const lineNodes = nodesByLine.get(line);
+                    if (lineNodes && lineNodes.length > 0) {
+                        nodeInfo = lineNodes[0]; // Take first match
+                    }
                 }
             }
             
-            if (nodes.size() > 0) {
-                nodes.each(function(d: any) {
-                    highlightedNodes.push(d);
-                });
-                
-                // Bring highlighted nodes to front
-                nodes.raise();
-                
-                nodes.classed('highlighted', true)
-                     .classed(`${target.highlightStyle}-match`, true);
-                
-                const circles = nodes.select('circle');
-                
-                // Enhanced visual effects for highlighted nodes
-                if (target.highlightStyle === 'direct') {
-                    circles.style('filter', 'drop-shadow(0 0 20px #00ff88)')
-                           .style('stroke', '#00ff88')
-                           .style('stroke-width', '4px')
-                           .attr('r', 25); // Increase size
-                } else if (target.highlightStyle === 'hierarchical') {
-                    circles.style('stroke', '#ffaa00')
-                           .style('stroke-width', '3px')
-                           .style('filter', 'drop-shadow(0 0 15px #ffaa00)')
-                           .attr('r', 23);
-                } else if (target.highlightStyle === 'temporary') {
-                    circles.style('filter', 'drop-shadow(0 0 18px #ff00aa)')
-                           .style('stroke', '#ff00aa')
-                           .style('stroke-width', '3px')
-                           .attr('r', 24);
-                } else if (target.highlightStyle === 'secondary') {
-                    circles.style('filter', 'drop-shadow(0 0 25px #00ffff)')
-                           .style('stroke', '#00ffff')
-                           .style('stroke-width', '5px')
-                           .attr('r', 28);
+            if (nodeInfo) {
+                nodesToHighlight.push({ nodeInfo, target });
+                highlightedNodes.push(nodeInfo.data);
+            }
+        });
+        
+        // Apply highlights in batch
+        nodesToHighlight.forEach(({ nodeInfo, target }) => {
+            const node = d3.select(nodeInfo.element);
+            const circle = node.select('circle');
+            
+            node.raise()
+                .classed('highlighted', true)
+                .classed(`${target.highlightStyle}-match`, true);
+            
+            // Optimized visual effects - use simpler alternatives to expensive filters
+            if (target.highlightStyle === 'direct') {
+                circle.style('stroke', '#00ff88')
+                      .style('stroke-width', '3px')
+                      .attr('r', 22); // Smaller size change
+            } else if (target.highlightStyle === 'hierarchical') {
+                circle.style('stroke', '#ffaa00')
+                      .style('stroke-width', '2px')
+                      .attr('r', 21);
+            } else if (target.highlightStyle === 'secondary') {
+                circle.style('stroke', '#00ffff')
+                      .style('stroke-width', '2px')
+                      .attr('r', 21);
+            }
+        });
+        
+        // Batch dim non-highlighted elements
+        allNodes.filter(function(d: any) {
+            return !highlightedNodes.some(n => n.id === d.id);
+        }).style('opacity', 0.4);
+        
+        // Optimize link highlighting - pre-compute highlighted node IDs
+        const highlightedIds = new Set(highlightedNodes.map(n => n.id));
+        
+        allLinks.style('opacity', function(d: any) {
+                const sourceHighlighted = highlightedIds.has(d.source.id);
+                const targetHighlighted = highlightedIds.has(d.target.id);
+                if (sourceHighlighted && targetHighlighted) {
+                    return 1;
+                } else if (sourceHighlighted || targetHighlighted) {
+                    return 0.6;
+                }
+                return 0.2;
+            })
+            .style('stroke', function(d: any) {
+                const sourceHighlighted = highlightedIds.has(d.source.id);
+                const targetHighlighted = highlightedIds.has(d.target.id);
+                return (sourceHighlighted && targetHighlighted) ? '#00ff88' : '#999';
+            });
+        
+        // Minimize simulation disturbance - only restart if completely stopped
+        if (simulation && typeof simulation.alpha === 'function') {
+            try {
+                const currentAlpha = simulation.alpha();
+                if (currentAlpha < 0.01) { // Much lower threshold
+                    simulation.alpha(0.03).restart(); // Lower alpha value
+                }
+            } catch (error) {
+                console.debug('Simulation highlighting error (safe to ignore):', error);
+            }
+        }
+    }
+    
+    /**
+     * Highlight RAG paths in call graph visualization
+     */
+    public static highlightRAGPaths(containerId: string, ragPathData: any): void {
+        const container = d3.select(`#${containerId}`);
+        const containerNode = container.node();
+        
+        // If container doesn't exist, nothing to highlight
+        if (!containerNode) {
+            console.debug(`RAG paths container '${containerId}' not found - skipping highlight`);
+            return;
+        }
+        
+        const simulation = (containerNode as any).__simulation;
+        
+        if (!ragPathData || !ragPathData.paths || ragPathData.paths.length === 0) {
+            this.clearHighlights(containerId);
+            return;
+        }
+        
+        // Collect path data efficiently using the new unique collections
+        const ragResultNodes = new Set<string>();
+        const pathIntermediateNodes = new Set<string>();
+        const pathEdges = new Set<string>();
+        
+        // Process RAG result nodes (matched nodes)
+        if (ragPathData.matched_nodes && Array.isArray(ragPathData.matched_nodes)) {
+            ragPathData.matched_nodes.forEach((nodeId: string) => {
+                if (nodeId && typeof nodeId === 'string') {
+                    ragResultNodes.add(nodeId);
+                }
+            });
+        }
+        
+        // Use unique intermediate nodes instead of extracting from paths
+        if (ragPathData.unique_intermediate_nodes && Array.isArray(ragPathData.unique_intermediate_nodes)) {
+            ragPathData.unique_intermediate_nodes.forEach((nodeId: string) => {
+                if (nodeId && typeof nodeId === 'string') {
+                    pathIntermediateNodes.add(nodeId);
+                }
+            });
+        }
+        
+        // Use unique edges instead of extracting from paths
+        if (ragPathData.unique_edges && Array.isArray(ragPathData.unique_edges)) {
+            ragPathData.unique_edges.forEach((edge: any) => {
+                if (edge && edge.from && edge.to) {
+                    pathEdges.add(`${edge.from}->${edge.to}`);
+                }
+            });
+        }
+        
+        // Build node lookup for efficient access
+        const nodesByName = new Map();
+        container.selectAll('.node').each(function(d: any) {
+            nodesByName.set(d.id || d.name, this);
+        });
+        
+        // Apply node highlighting efficiently
+        ragResultNodes.forEach(nodeName => {
+            const nodeElement = nodesByName.get(nodeName);
+            if (nodeElement) {
+                d3.select(nodeElement).classed('dimmed', false);
+            }
+        });
+        
+        pathIntermediateNodes.forEach(nodeName => {
+            const nodeElement = nodesByName.get(nodeName);
+            if (nodeElement) {
+                d3.select(nodeElement).classed('path-intermediate', true).classed('dimmed', false);
+            }
+        });
+        
+        // Batch dim non-path nodes
+        container.selectAll('.node').each(function(d: any) {
+            const nodeName = d.id || d.name;
+            if (!ragResultNodes.has(nodeName) && !pathIntermediateNodes.has(nodeName)) {
+                const nodeElement = d3.select(this);
+                if (!nodeElement.classed('highlighted')) {
+                    nodeElement.classed('dimmed', true);
                 }
             }
         });
         
-        // Dim non-highlighted nodes for better contrast
-        container.selectAll('.node:not(.highlighted)')
-                 .style('opacity', 0.3);
-        
-        // Dim non-highlighted links
-        container.selectAll('.links line')
-                 .style('opacity', 0.1);
-        
-        // Highlight connections between highlighted nodes
-        container.selectAll('.links line')
-                 .style('opacity', function(d: any) {
-                     const sourceHighlighted = highlightedNodes.some(n => n.id === d.source.id);
-                     const targetHighlighted = highlightedNodes.some(n => n.id === d.target.id);
-                     if (sourceHighlighted && targetHighlighted) {
-                         return 1; // Full opacity for connections between highlighted nodes
-                     } else if (sourceHighlighted || targetHighlighted) {
-                         return 0.6; // Partial opacity for connections to highlighted nodes
-                     }
-                     return 0.1; // Very dim for other connections
-                 })
-                 .style('stroke', function(d: any) {
-                     const sourceHighlighted = highlightedNodes.some(n => n.id === d.source.id);
-                     const targetHighlighted = highlightedNodes.some(n => n.id === d.target.id);
-                     if (sourceHighlighted && targetHighlighted) {
-                         return '#00ff88'; // Highlight color for inter-highlighted connections
-                     }
-                     return '#999'; // Default color
-                 })
-                 .style('stroke-width', function(d: any) {
-                     const sourceHighlighted = highlightedNodes.some(n => n.id === d.source.id);
-                     const targetHighlighted = highlightedNodes.some(n => n.id === d.target.id);
-                     if (sourceHighlighted && targetHighlighted) {
-                         return 3; // Thicker lines for inter-highlighted connections
-                     }
-                     return 2; // Default thickness
-                 });
-        
-        // Gently reheat the simulation without disrupting existing positions
-        if (simulation) {
-            // Remove any existing highlight force first
-            simulation.force('highlight', null);
+        // Optimize edge highlighting with pre-computed sets
+        container.selectAll('.links line').each(function(d: any) {
+            const sourceId = d.source.id || d.source.name || d.source;
+            const targetId = d.target.id || d.target.name || d.target;
             
-            // Only give the simulation a gentle energy boost if it's nearly stopped
+            if (!sourceId || !targetId) return;
+            
+            const edgeKey = `${sourceId}->${targetId}`;
+            const reverseEdgeKey = `${targetId}->${sourceId}`;
+            const isExplicitPathEdge = pathEdges.has(edgeKey) || pathEdges.has(reverseEdgeKey);
+            const sourceIsRAGNode = ragResultNodes.has(sourceId) || pathIntermediateNodes.has(sourceId);
+            const targetIsRAGNode = ragResultNodes.has(targetId) || pathIntermediateNodes.has(targetId);
+            const isRAGPath = isExplicitPathEdge || (sourceIsRAGNode && targetIsRAGNode);
+            
+            const edgeElement = d3.select(this);
+                         if (isRAGPath) {
+                 edgeElement.classed('rag-path', true).classed('dimmed', false)
+                           .style('opacity', 0.8)
+                           .style('stroke', '#e67e22')  // More subtle orange
+                           .style('stroke-width', '2px')
+                           .style('stroke-dasharray', null); // Solid lines
+            } else {
+                // Simplified dimming logic
+                if (!ragResultNodes.has(sourceId) && !ragResultNodes.has(targetId) &&
+                    !pathIntermediateNodes.has(sourceId) && !pathIntermediateNodes.has(targetId)) {
+                    edgeElement.classed('dimmed', true);
+                }
+            }
+        });
+        
+        // Avoid simulation restart for path highlighting - it's not needed for visual-only changes
+        // Only restart if absolutely necessary and simulation is completely stopped
+        if (simulation && typeof simulation.alpha === 'function') {
             const currentAlpha = simulation.alpha();
-            if (currentAlpha < 0.1) {
-                simulation.alpha(Math.max(currentAlpha, 0.1)).restart();
+            if (currentAlpha < 0.005) { // Very low threshold
+                simulation.alpha(0.01); // Very gentle boost, no restart
             }
         }
-        
-
     }
-    
+
     /**
      * Clear all highlights from a visualization
      */
     public static clearHighlights(containerId: string): void {
         const container = d3.select(`#${containerId}`);
-        const simulation = (container.node() as any).__simulation;
+        const containerNode = container.node();
+        
+        // If container doesn't exist, nothing to clear
+        if (!containerNode) {
+            return;
+        }
+        
+        const simulation = (containerNode as any).__simulation;
         
         // Remove highlight classes
-        container.selectAll('.node').classed('highlighted direct-match hierarchical-match temporary-match secondary-match', false);
+        container.selectAll('.node').classed('highlighted direct-match hierarchical-match temporary-match secondary-match path-intermediate dimmed', false);
         
         // Reset visual effects
         container.selectAll('.node rect, .node circle, .node polygon')
@@ -1245,12 +1410,17 @@ export class D3Visualizations {
         
         // Reset links for both call graphs (lines) and inheritance graphs (paths)
         container.selectAll('.links line')
+                 .classed('rag-path dimmed', false)
                  .style('opacity', 0.6)
                  .style('stroke', '#999')
-                 .style('stroke-width', 2);
+                 .style('stroke-width', 2)
+                 .style('stroke-dasharray', null)
+                 .style('filter', null)
+                 .style('animation', null);
         
         // Reset inheritance graph links (paths)
         container.selectAll('.link')
+                 .classed('rag-path dimmed', false)
                  .style('opacity', 0.6)
                  .style('stroke', '#ccc')
                  .style('stroke-width', 2);
@@ -1259,12 +1429,17 @@ export class D3Visualizations {
         container.selectAll('.node circle').interrupt();
         
         // Reset simulation parameters and remove any temporary forces (for call graphs)
-        if (simulation) {
-            simulation.force('highlight', null);
-            // Only give a gentle boost if the simulation has stopped
-            const currentAlpha = simulation.alpha();
-            if (currentAlpha < 0.05) {
-                simulation.alpha(0.05).restart();
+        if (simulation && typeof simulation.alpha === 'function') {
+            try {
+                simulation.force('highlight', null);
+                // Only give a gentle boost if the simulation has stopped
+                const currentAlpha = simulation.alpha();
+                if (currentAlpha < 0.05) {
+                    simulation.alpha(0.05).restart();
+                }
+            } catch (error) {
+                // Silently ignore simulation errors during cleanup
+                console.debug('Simulation cleanup error (safe to ignore):', error);
             }
         }
     }

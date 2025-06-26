@@ -215,6 +215,10 @@ export class VisualizationCoordinator {
                     // Clear any existing highlights if no targets for this view
                     D3Visualizations.clearHighlights('callgraph-visualization');
                 }
+                
+                // Always try to apply RAG path highlighting when switching to call graph
+                // This ensures paths are restored even if we don't have call graph node highlights
+                this.applyRAGPathHighlighting(detail.data);
             }
             // Note: AST view doesn't have highlighting support yet, so no action needed
             
@@ -245,6 +249,9 @@ export class VisualizationCoordinator {
                     D3Visualizations.highlightCallGraphNodes('callgraph-visualization', callGraphTargets);
                     console.log(`Reapplied ${callGraphTargets.length} call graph highlights after data update`);
                 }
+                
+                // Always try to reapply RAG path highlighting for call graph
+                this.applyRAGPathHighlighting(detail.data);
             }
         }, 150); // Slightly longer delay for data updates
     }
@@ -301,6 +308,9 @@ export class VisualizationCoordinator {
         if (callGraphTargets.length > 0) {
             D3Visualizations.highlightCallGraphNodes('callgraph-visualization', callGraphTargets);
         }
+        
+        // Check for RAG path data and apply path highlighting if available
+        this.applyRAGPathHighlighting(analysisData);
         
         // Store current highlights
         this.currentHighlights = matches;
@@ -426,6 +436,41 @@ export class VisualizationCoordinator {
             if (callGraphTargets.length > 0) {
                 D3Visualizations.highlightCallGraphNodes('callgraph-visualization', callGraphTargets);
             }
+        }
+    }
+    
+    private applyRAGPathHighlighting(analysisData?: any): void {
+        // Try multiple sources for RAG path data
+        let ragPathData = null;
+        
+        // 1. Check provided analysis data first
+        if (analysisData?.callgraph?.rag_paths) {
+            ragPathData = analysisData.callgraph.rag_paths;
+        }
+        
+        // 2. Check globally stored RAG visualization data
+        if (!ragPathData) {
+            const globalRagData = (window as any).ragVisualizationData;
+            if (globalRagData?.callgraph?.rag_paths) {
+                ragPathData = globalRagData.callgraph.rag_paths;
+            }
+        }
+        
+        // 3. Check dashboard data as fallback
+        if (!ragPathData) {
+            const dashboard = (window as any).prismDashboard;
+            const dashboardData = dashboard?.getAnalysisData();
+            if (dashboardData?.callgraph?.rag_paths) {
+                ragPathData = dashboardData.callgraph.rag_paths;
+            }
+        }
+        
+        // Apply RAG path highlighting if we found the data
+        if (ragPathData) {
+            D3Visualizations.highlightRAGPaths('callgraph-visualization', ragPathData);
+            console.log('Applied RAG path highlighting with data:', ragPathData);
+        } else {
+            console.debug('No RAG path data found for highlighting');
         }
     }
 } 
