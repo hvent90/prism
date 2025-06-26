@@ -8,7 +8,7 @@ interface ResultsListProps {
   className?: string;
 }
 
-const ResultItem: React.FC<{ item: RAGItem }> = ({ item }) => {
+const ResultItem: React.FC<{ item: any }> = ({ item }) => {
   const getTypeIcon = (type: string): string => {
     switch (type) {
       case 'class':
@@ -24,11 +24,17 @@ const ResultItem: React.FC<{ item: RAGItem }> = ({ item }) => {
     }
   };
 
-  const getRelevanceColor = (relevance: number): string => {
-    if (relevance >= 0.8) return 'high';
-    if (relevance >= 0.6) return 'medium';
+  const getRelevanceColor = (score: number): string => {
+    if (score >= 0.8) return 'high';
+    if (score >= 0.6) return 'medium';
     return 'low';
   };
+
+  // Handle both the expected format and the actual API response format
+  const score = item.score || item.relevance || 0;
+  const content = item.snippet || item.content || '';
+  const lineStart = item.line_start || item.line;
+  const lineEnd = item.line_end;
 
   return (
     <div className="rag-result-item">
@@ -36,17 +42,20 @@ const ResultItem: React.FC<{ item: RAGItem }> = ({ item }) => {
         <span className="result-type">
           {getTypeIcon(item.type)} {item.type}
         </span>
-        <span className={`result-relevance ${getRelevanceColor(item.relevance)}`}>
-          {Math.round(item.relevance * 100)}%
+        <span className={`result-relevance ${getRelevanceColor(score)}`}>
+          {Math.round(score * 100)}%
         </span>
       </div>
       <div className="result-name">{item.name}</div>
-      <div className="result-content">{item.content}</div>
-      {item.context && (
-        <div className="result-context">{item.context}</div>
-      )}
-      {item.line && (
-        <div className="result-line">Line {item.line}</div>
+      <div className="result-content">
+        <pre><code>{content}</code></pre>
+      </div>
+      {lineStart && (
+        <div className="result-line">
+          {lineEnd && lineEnd !== lineStart 
+            ? `Lines ${lineStart}-${lineEnd}` 
+            : `Line ${lineStart}`}
+        </div>
       )}
     </div>
   );
@@ -104,7 +113,7 @@ export const ResultsList: React.FC<ResultsListProps> = ({
   return (
     <div className={`rag-results ${className}`}>
       <div className="results-header">
-        <h4>Results for: "{results.query}"</h4>
+        <h4>Search Results</h4>
         <span className="results-count">
           {results.results.length} result{results.results.length !== 1 ? 's' : ''}
         </span>

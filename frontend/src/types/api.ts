@@ -52,18 +52,26 @@ export interface AnalysisResult {
 }
 
 export interface RAGResult {
-  query: string;
+  success: boolean;
   results: RAGItem[];
-  timestamp: string;
 }
 
 export interface RAGItem {
   type: 'class' | 'function' | 'variable' | 'import';
   name: string;
-  content: string;
-  relevance: number;
-  context: string;
-  line?: number;
+  snippet: string;
+  score: number;
+  line_start?: number;
+  line_end?: number;
+  ast_ref?: {
+    col: number;
+    end_col: number;
+    end_line: number;
+    line: number;
+    node_id: string;
+    node_path: string[];
+    node_type: string;
+  };
 }
 
 export interface ComprehensiveAnalysisResult {
