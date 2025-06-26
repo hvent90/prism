@@ -13,31 +13,27 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
   onViewChange,
   className = '',
 }) => {
-  const views: ViewType[] = ['ast', 'inheritance', 'callgraph'];
+  const views: ViewType[] = ['inheritance', 'callgraph'];
 
   const getViewIcon = (view: ViewType): string => {
     switch (view) {
-      case 'ast':
-        return '📊';
       case 'inheritance':
         return '🏗️';
       case 'callgraph':
         return '🔗';
       default:
-        return '📊';
+        return '🏗️';
     }
   };
 
   const getViewLabel = (view: ViewType): string => {
     switch (view) {
-      case 'ast':
-        return 'AST';
       case 'inheritance':
         return 'Inheritance';
       case 'callgraph':
         return 'Call Graph';
       default:
-        return 'AST';
+        return 'Inheritance';
     }
   };
 

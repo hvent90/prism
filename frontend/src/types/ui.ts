@@ -1,4 +1,4 @@
-export type ViewType = 'ast' | 'inheritance' | 'callgraph';
+export type ViewType = 'inheritance' | 'callgraph';
 
 export interface PanelSizes {
   code: number;
@@ -29,7 +29,6 @@ export const DEFAULT_PANEL_SIZES: PanelSizes = {
 };
 
 export const VIEW_TITLES: Record<ViewType, string> = {
-  ast: '📊 Abstract Syntax Tree',
   inheritance: '🏗️ Class Inheritance',
   callgraph: '🔗 Function Call Graph'
 }; 

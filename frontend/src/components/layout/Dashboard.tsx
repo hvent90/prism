@@ -24,11 +24,6 @@ const WelcomeMessage: React.FC = () => (
     <p>Enter Python code in the left panel and click "Analyze Code" to get started.</p>
     <div className="feature-grid">
       <div className="feature-card">
-        <div className="feature-icon">📊</div>
-        <h4>AST Analysis</h4>
-        <p>Visualize Abstract Syntax Trees</p>
-      </div>
-      <div className="feature-card">
         <div className="feature-icon">🏗️</div>
         <h4>Inheritance</h4>
         <p>Explore class hierarchies</p>
@@ -43,7 +38,7 @@ const WelcomeMessage: React.FC = () => (
 );
 
 export const Dashboard: React.FC<DashboardProps> = ({ className = '' }) => {
-  const [activeView, setActiveView] = useState<ViewType>('ast');
+  const [activeView, setActiveView] = useState<ViewType>('inheritance');
   const [panelSizes, setPanelSizes] = useState<PanelSizes>(DEFAULT_PANEL_SIZES);
   
   // Initialize AST visualization coordinator
@@ -305,34 +300,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ className = '' }) => {
           {analysis && !analysisLoading && (
             <div className="analysis-display">
               <div className="visualization-container" id="viz-container">
-                {/* AST Visualization */}
-                {activeView === 'ast' && analysis.ast && (
-                  <div 
-                    id="ast-viz-container" 
-                    className="d3-visualization-wrapper"
-                    style={{ width: '100%', height: '600px' }}
-                    ref={(ref) => {
-                      if (ref && analysis.ast) {
-                        // Clear any existing visualization
-                        ref.innerHTML = '';
-                        
-                        // Create unique container ID
-                        const vizId = 'ast-viz-' + Date.now();
-                        const vizDiv = document.createElement('div');
-                        vizDiv.id = vizId;
-                        vizDiv.style.width = '100%';
-                        vizDiv.style.height = '100%';
-                        ref.appendChild(vizDiv);
-                        
-                        // Render D3 visualization
-                        setTimeout(() => {
-                          D3Visualizations.renderAST(vizId, analysis.ast);
-                        }, 0);
-                      }
-                    }}
-                  />
-                )}
-                
                 {/* Inheritance Visualization */}
                 {activeView === 'inheritance' && analysis.inheritance && (
                   <div 
@@ -392,8 +359,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ className = '' }) => {
                 )}
                 
                 {/* No Data Message */}
-                {(!analysis.ast && activeView === 'ast') || 
-                 (!analysis.inheritance && activeView === 'inheritance') || 
+                {(!analysis.inheritance && activeView === 'inheritance') || 
                  (!analysis.callGraph && activeView === 'callgraph') ? (
                   <div className="no-data-message">
                     <h4>No {VIEW_TITLES[activeView]} Data</h4>
