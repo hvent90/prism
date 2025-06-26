@@ -1,0 +1,69 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# How to Implement a Task
+
+This document provides a procedural guide for an LLM tasked with implementing a feature from a task specification file (e.g., `01_implement_rag.md`). Adhering to this process ensures a systematic and complete implementation.
+
+## 🎯 Your Goal
+
+Your primary objective is to translate a task specification document from the `docs/` directory into working code, following the plan outlined within that document.
+
+---
+
+## 📝 Procedure
+
+### Step 1: Deeply Understand the Task
+
+Before writing any code, you must build a comprehensive understanding of the requirements.
+
+1.  **Read the Task Specification:** Carefully read the entire markdown file for the task you are assigned (e.g., `@01_implement_rag.md`). Pay close attention to:
+    -   `🎯 Goals`
+    -   `🏗️ Implementation Plan`
+    -   `📝 Acceptance Criteria`
+    -   `📦 Files to Create/Modify`
+2.  **Review Architectural Context:** To understand how the new feature fits into the existing system, you MUST review the architectural documentation:
+    -   `@backend.mdc`: For the Python/Flask server architecture.
+    -   `@frontend.mdc`: For the TypeScript/Vite frontend architecture.
+    -   `@project-structure.mdc`: For file locations and purposes.
+3.  **Formulate a Plan:** Synthesize the information from the documents into a concrete, step-by-step plan. You should announce this plan before you begin making file edits.
+
+### Step 2: Implement Backend Changes
+
+If the task requires backend modifications, follow the `Implementation Plan` section of the task document.
+
+1.  **Modify API Endpoints:** Edit `backend/app.py` to add or change the required Flask routes.
+2.  **Add Helper Modules:** If the plan requires new logic, create new files (e.g., `backend/ast_coordinates.py`).
+3.  **Update Dependencies:** If new libraries are needed, add them to `backend/requirements.txt`. Make sure to specify versions as indicated in the task document.
+
+### Step 3: Implement Frontend Changes
+
+Implement the frontend user interface and logic as specified in the task document.
+
+1.  **Update HTML Structure:** Modify `frontend/public/index.html` to add any new panels, buttons, or containers.
+2.  **Create New Modules:** Create new TypeScript files in `frontend/src/` for the feature's core logic (e.g., `frontend/src/rag-interface.ts`).
+3.  **Integrate the Feature:** Update existing modules (`dashboard.ts`, `main-display.ts`, etc.) to integrate and manage the new feature.
+4.  **Add Styles:** Add necessary CSS rules to `frontend/public/style.css` to ensure the new components match the existing design system.
+5.  **Update Dependencies:** If new npm packages are required, add them to `frontend/package.json` and then run `npm install`.
+
+### Step 4: Verify Against Acceptance Criteria
+
+Review your implementation against the `📝 Acceptance Criteria` checklist in the task document. Ensure every criterion has been met. This is a critical self-correction step.
+
+### Step 5: Mark the Task as Complete
+
+Once the implementation is complete and verified, the final step is to update the project's master task list.
+
+1.  **Open `docs/tasklist.md`.**
+2.  **Locate the task** you just completed in the `## 🚀 Current Tasks` section.
+3.  **Change the checkbox** from `[ ]` to `[x]`.
+
+**Example:**
+
+**Before:**
+`[ ] **AST Coordinate System**: [03_ast_coordinates.md](./03_ast_coordinates.md) - Implement AST-based highlighting for RAG results`
+
+**After:**
+`[x] **AST Coordinate System**: [03_ast_coordinates.md](./03_ast_coordinates.md) - Implement AST-based highlighting for RAG results`

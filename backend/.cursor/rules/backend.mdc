@@ -1,0 +1,58 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Prism Backend Architecture
+
+## Overview
+
+The Prism backend is a Python application built with the **Flask** web framework. Its primary role is to serve a RESTful API that provides detailed code analysis to the frontend. It receives Python code as input, processes it, and returns structured data for various visualizations.
+
+## Core Responsibilities
+
+-   **API Server**: Exposes endpoints for the frontend to fetch code analysis data.
+-   **Code Parsing**: Leverages Python's built-in `ast` module to parse code into an Abstract Syntax Tree.
+-   **Semantic Analysis**: Implements a Retrieval-Augmented Generation (RAG) pipeline to perform semantic searches on the provided code.
+-   **Data Structuring**: Generates data for class inheritance graphs, function call graphs, and AST visualizations.
+
+## Key Technologies
+
+-   **Web Framework**: [Flask](mdc:https:/flask.palletsprojects.com)
+-   **Code Parsing**: `ast` (Python standard library)
+-   **Semantic Search & Embeddings**:
+    -   `sentence-transformers`: For generating embeddings using the `all-MiniLM-L6-v2` model locally.
+    -   `scikit-learn`: For calculating cosine similarity between embeddings.
+    -   `numpy`: For numerical operations on vectors.
+-   **Dependencies**: All dependencies are listed in `backend/requirements.txt`.
+
+## Architectural Patterns
+
+### RAG-based Semantic Search
+
+The backend implements a full RAG pipeline locally:
+
+1.  **Code Chunking**: The input code is parsed using the `ast` module, and logical chunks (functions, classes, global scope) are extracted.
+2.  **Embedding Generation**: Each code chunk is converted into a vector embedding using a locally-run `sentence-transformers` model. This process happens on-the-fly for each request.
+3.  **Semantic Search**: When a user submits a natural language query, it's also embedded. The backend then uses cosine similarity to find the code chunks most semantically similar to the query.
+
+### AST Coordinate System
+
+A core architectural concept is the **AST coordinate system**. The backend generates a unique, standardized reference for every significant AST node (classes, functions, etc.).
+
+-   **Format**: The reference includes `node_id`, line/column numbers, node type, and a hierarchical path.
+-   **Purpose**: These coordinates are sent with all API responses. They act as a "single source of truth," allowing the frontend to reliably map data between different visualizations (e.g., highlighting a class in the inheritance graph that was found by a RAG query).
+
+## Key Files
+
+-   `app.py`: The main Flask application file. It defines the API endpoints and orchestrates the code analysis pipeline.
+-   `ast_coordinates.py`: A utility module responsible for generating the standardized AST coordinate references for nodes.
+-   `requirements.txt`: Lists all Python dependencies for the project.
+
+## API Endpoints
+
+The backend exposes several endpoints, including:
+
+-   `POST /api/rag-query`: Accepts Python code and a natural language query. Returns a ranked list of relevant code snippets, each enhanced with metadata and an AST coordinate reference.
+-   Other endpoints (inferred): Endpoints to provide data for the AST, class inheritance, and function call graph visualizations. These also return data annotated with AST coordinates.
+
