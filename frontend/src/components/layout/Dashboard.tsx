@@ -11,6 +11,7 @@ import { D3Visualization } from '../visualizations/D3Visualization';
 import { QueryInput } from '../rag/QueryInput';
 import { ResultsList } from '../rag/ResultsList';
 import { D3Visualizations } from '../../d3-visualizations';
+import { VisualizationCoordinator } from '../../ast-coordinator';
 import * as d3 from 'd3';
 
 interface DashboardProps {
@@ -45,6 +46,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ className = '' }) => {
   const [activeView, setActiveView] = useState<ViewType>('ast');
   const [panelSizes, setPanelSizes] = useState<PanelSizes>(DEFAULT_PANEL_SIZES);
   
+  // Initialize AST visualization coordinator
+  useEffect(() => {
+    const coordinator = new VisualizationCoordinator();
+    
+    // Store reference globally for access by other components
+    (window as any).astCoordinator = coordinator;
+    
+    return () => {
+      // Cleanup if needed
+      delete (window as any).astCoordinator;
+    };
+    }, []);
+
   const {
     code,
     setCode,
@@ -66,6 +80,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ className = '' }) => {
     queryHistory,
     clearHistory,
   } = useRAGQuery();
+
+  // Handle view switching for AST coordinator
+  useEffect(() => {
+    const event = new CustomEvent('visualization-view-switched', {
+      detail: {
+        newView: activeView,
+        previousView: activeView, // Could track previous view if needed
+        data: analysis
+      }
+    });
+    document.dispatchEvent(event);
+  }, [activeView, analysis]);
+
+  // Store analysis data globally for AST coordinator
+  useEffect(() => {
+    if (analysis) {
+      (window as any).prismDashboard = {
+        getAnalysisData: () => analysis
+      };
+    }
+  }, [analysis]);
 
   // Handle keyboard shortcuts
   useEffect(() => {
@@ -301,7 +336,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ className = '' }) => {
                 {/* Inheritance Visualization */}
                 {activeView === 'inheritance' && analysis.inheritance && (
                   <div 
-                    id="inheritance-viz-container" 
+                    id="inheritance-visualization" 
                     className="d3-visualization-wrapper"
                     style={{ width: '100%', height: '600px' }}
                     ref={(ref) => {
@@ -309,17 +344,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ className = '' }) => {
                         // Clear any existing visualization
                         ref.innerHTML = '';
                         
-                        // Create unique container ID
-                        const vizId = 'inheritance-viz-' + Date.now();
-                        const vizDiv = document.createElement('div');
-                        vizDiv.id = vizId;
-                        vizDiv.style.width = '100%';
-                        vizDiv.style.height = '100%';
-                        ref.appendChild(vizDiv);
-                        
-                        // Render D3 visualization
+                        // Render D3 visualization with fixed ID for AST coordinator
                         setTimeout(() => {
-                          D3Visualizations.renderInheritance(vizId, analysis.inheritance);
+                          D3Visualizations.renderInheritance('inheritance-visualization', analysis.inheritance);
+                          
+                          // Dispatch visualization data update event
+                          const event = new CustomEvent('visualization-data-updated', {
+                            detail: {
+                              view: 'inheritance',
+                              data: analysis.inheritance
+                            }
+                          });
+                          document.dispatchEvent(event);
                         }, 0);
                       }
                     }}
@@ -329,7 +365,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ className = '' }) => {
                 {/* Call Graph Visualization */}
                 {activeView === 'callgraph' && analysis.callGraph && (
                   <div 
-                    id="callgraph-viz-container" 
+                    id="callgraph-visualization" 
                     className="d3-visualization-wrapper"
                     style={{ width: '100%', height: '600px' }}
                     ref={(ref) => {
@@ -337,17 +373,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ className = '' }) => {
                         // Clear any existing visualization
                         ref.innerHTML = '';
                         
-                        // Create unique container ID
-                        const vizId = 'callgraph-viz-' + Date.now();
-                        const vizDiv = document.createElement('div');
-                        vizDiv.id = vizId;
-                        vizDiv.style.width = '100%';
-                        vizDiv.style.height = '100%';
-                        ref.appendChild(vizDiv);
-                        
-                        // Render D3 visualization
+                        // Render D3 visualization with fixed ID for AST coordinator
                         setTimeout(() => {
-                          D3Visualizations.renderCallGraph(vizId, analysis.callGraph);
+                          D3Visualizations.renderCallGraph('callgraph-visualization', analysis.callGraph);
+                          
+                          // Dispatch visualization data update event
+                          const event = new CustomEvent('visualization-data-updated', {
+                            detail: {
+                              view: 'callgraph',
+                              data: analysis.callGraph
+                            }
+                          });
+                          document.dispatchEvent(event);
                         }, 0);
                       }
                     }}

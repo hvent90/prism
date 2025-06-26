@@ -54,6 +54,16 @@ export interface AnalysisResult {
 export interface RAGResult {
   success: boolean;
   results: RAGItem[];
+  visualization_data?: {
+    inheritance: {
+      classes: any[];
+      functions: any[];
+    };
+    callgraph: {
+      functions: any[];
+      calls: any[];
+    };
+  };
 }
 
 export interface RAGItem {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { RAGResult, RAGItem } from '../../types/api';
 
 interface ResultsListProps {
@@ -30,6 +30,26 @@ const ResultItem: React.FC<{ item: any }> = ({ item }) => {
     return 'low';
   };
 
+  const handleMouseEnter = () => {
+    const event = new CustomEvent('rag-result-hover', {
+      detail: {
+        action: 'enter',
+        result: item
+      }
+    });
+    document.dispatchEvent(event);
+  };
+
+  const handleMouseLeave = () => {
+    const event = new CustomEvent('rag-result-hover', {
+      detail: {
+        action: 'leave',
+        result: item
+      }
+    });
+    document.dispatchEvent(event);
+  };
+
   // Handle both the expected format and the actual API response format
   const score = item.score || item.relevance || 0;
   const content = item.snippet || item.content || '';
@@ -37,7 +57,11 @@ const ResultItem: React.FC<{ item: any }> = ({ item }) => {
   const lineEnd = item.line_end;
 
   return (
-    <div className="rag-result-item">
+    <div 
+      className="rag-result-item"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
       <div className="result-header">
         <span className="result-type">
           {getTypeIcon(item.type)} {item.type}
@@ -80,6 +104,37 @@ export const ResultsList: React.FC<ResultsListProps> = ({
   error,
   className = '',
 }) => {
+  // Handle visualization highlighting when results change
+  useEffect(() => {
+    if (results && results.results.length > 0) {
+      // Store visualization data globally for the AST coordinator
+      if (results.visualization_data) {
+        (window as any).ragVisualizationData = results.visualization_data;
+      }
+      
+      // Dispatch event for AST coordinator to highlight matching nodes
+      const event = new CustomEvent('rag-results-displayed', {
+        detail: {
+          results: results.results,
+          visualizationData: results.visualization_data
+        }
+      });
+      document.dispatchEvent(event);
+    } else if (results && results.results.length === 0) {
+      // Clear highlights when no results
+      const event = new CustomEvent('rag-results-cleared');
+      document.dispatchEvent(event);
+    }
+    
+    // Cleanup: clear highlights when component unmounts or results change to null
+    return () => {
+      if (!results) {
+        const event = new CustomEvent('rag-results-cleared');
+        document.dispatchEvent(event);
+      }
+    };
+  }, [results]);
+
   if (loading) {
     return (
       <div className={`rag-results loading ${className}`}>

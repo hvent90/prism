@@ -454,7 +454,7 @@ def extract_call_graph():
 
 @app.route('/api/rag-query', methods=['POST'])
 def rag_query():
-    """Process natural language query and return relevant code snippets with AST coordinates"""
+    """Process natural language query and return relevant code snippets with AST coordinates and visualization data"""
     try:
         data = request.get_json()
         code = data.get('code', '')
@@ -496,9 +496,27 @@ def rag_query():
             enhanced_result = enhance_rag_result_with_ast_ref(base_result, tree, line_mapping)
             enhanced_results.append(enhanced_result)
         
+        # 6. Extract visualization data for node matching
+        # Extract class inheritance hierarchy and standalone functions
+        classes = extract_classes_from_ast(tree)
+        functions = extract_functions_from_ast(tree)
+        
+        # Extract function call graph
+        call_info = extract_function_calls(tree)
+        
         return jsonify({
             'success': True,
-            'results': enhanced_results
+            'results': enhanced_results,
+            'visualization_data': {
+                'inheritance': {
+                    'classes': classes,
+                    'functions': functions
+                },
+                'callgraph': {
+                    'functions': call_info['functions'],
+                    'calls': call_info['calls']
+                }
+            }
         })
         
     except Exception as e:

@@ -1168,7 +1168,7 @@ export class D3Visualizations {
                 params: fn.args || [],
                 lineno: fn.lineno,
                 docstring: fn.docstring,
-                ast_ref: undefined
+                ast_ref: fn.ast_ref
             };
         });
 

@@ -157,7 +157,7 @@ export class VisualizationCoordinator {
     private setupRAGResultListeners(): void {
         // Listen for RAG results display
         document.addEventListener('rag-results-displayed', (event: any) => {
-            this.highlightMatchingNodes(event.detail.results);
+            this.highlightMatchingNodes(event.detail.results, event.detail.visualizationData);
         });
         
         // Listen for RAG results cleared
@@ -249,9 +249,19 @@ export class VisualizationCoordinator {
         }, 150); // Slightly longer delay for data updates
     }
     
-    public highlightMatchingNodes(ragResults: RAGResult[]): void {
-        const dashboard = (window as any).prismDashboard;
-        const analysisData = dashboard?.getAnalysisData();
+    public highlightMatchingNodes(ragResults: RAGResult[], visualizationData?: any): void {
+        // Use provided visualization data or fall back to dashboard data
+        let analysisData = visualizationData;
+        
+        if (!analysisData) {
+            const dashboard = (window as any).prismDashboard;
+            analysisData = dashboard?.getAnalysisData();
+        }
+        
+        // Also check for globally stored RAG visualization data
+        if (!analysisData) {
+            analysisData = (window as any).ragVisualizationData;
+        }
         
         if (!analysisData) return;
         
@@ -270,6 +280,14 @@ export class VisualizationCoordinator {
                     callGraphTargets.push(target);
                 }
             });
+        });
+        
+        console.log('AST Coordinator - Highlighting targets:', {
+            inheritanceTargets: inheritanceTargets.length,
+            callGraphTargets: callGraphTargets.length,
+            analysisData: !!analysisData,
+            callgraphFunctions: analysisData?.callgraph?.functions?.length || 0,
+            ragResults: ragResults.length
         });
         
         // Store persistent targets for later restoration
@@ -331,8 +349,13 @@ export class VisualizationCoordinator {
     private addSecondaryHighlight(ragResult: RAGResult): void {
         if (!ragResult.ast_ref) return;
         
-        const dashboard = (window as any).prismDashboard;
-        const analysisData = dashboard?.getAnalysisData();
+        // Use globally stored RAG visualization data or fall back to dashboard data
+        let analysisData = (window as any).ragVisualizationData;
+        
+        if (!analysisData) {
+            const dashboard = (window as any).prismDashboard;
+            analysisData = dashboard?.getAnalysisData();
+        }
         
         if (!analysisData) return;
         
