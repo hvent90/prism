@@ -348,7 +348,7 @@ export class D3Visualizations {
                     .style('font-size', '11px')
                     .style('font-weight', 'bold')
                     .style('fill', 'white')
-                    .text(d.data.name);
+                    .text(typeof d.data.name === 'string' ? d.data.name : String(d.data.name || 'unknown'));
 
                 // Parameter count
                 node.append('text')
@@ -761,10 +761,12 @@ export class D3Visualizations {
 
         // Convert functions to proper format
         const functionNodes = functions.map(fn => ({
-            name: fn.name,
+            name: typeof fn.name === 'string' ? fn.name : String(fn.name || 'unknown'),
             type: 'function',
-            params: fn.params || [],
-            paramCount: fn.params ? fn.params.length : 0,
+            params: Array.isArray(fn.params) ? fn.params : 
+                    Array.isArray(fn.args) ? fn.args : [],
+            paramCount: Array.isArray(fn.params) ? fn.params.length : 
+                       Array.isArray(fn.args) ? fn.args.length : 0,
             lineno: fn.lineno,
             docstring: fn.docstring,
             ast_ref: fn.ast_ref
@@ -1099,25 +1101,38 @@ export class D3Visualizations {
      * Convert API inheritance data format to internal format
      */
     private static convertInheritanceData(apiData: any): { classes: ClassNode[], functions: any[] } {
-        const classes: ClassNode[] = apiData.classes.map((cls: any) => ({
+        // Handle nested inheritance data structure
+        const inheritanceData = apiData.inheritance || apiData;
+        
+        const classes: ClassNode[] = (inheritanceData.classes || []).map((cls: any) => ({
             name: cls.name,
             bases: cls.bases || [],
-            methods: cls.methods ? cls.methods.map((methodName: string) => ({
-                name: methodName,
-                params: [],
-                lineno: cls.lineno || 0,
-                docstring: undefined,
-                ast_ref: undefined
+            methods: cls.methods ? cls.methods.map((method: any) => ({
+                name: typeof method.name === 'string' ? method.name : String(method.name || 'unknown'),
+                params: Array.isArray(method.params) ? method.params : [],
+                lineno: method.lineno || cls.lineno || 0,
+                docstring: method.docstring,
+                ast_ref: method.ast_ref
             })) : [],
             attributes: cls.attributes || [],
             lineno: cls.lineno,
-            docstring: undefined,
-            ast_ref: undefined
+            docstring: cls.docstring,
+            ast_ref: cls.ast_ref
+        }));
+
+        // Process functions if they exist in the API data
+        const functions = (inheritanceData.functions || []).map((fn: any) => ({
+            name: typeof fn.name === 'string' ? fn.name : String(fn.name || 'unknown'),
+            params: Array.isArray(fn.params) ? fn.params : 
+                    Array.isArray(fn.args) ? fn.args : [],
+            lineno: fn.lineno,
+            docstring: fn.docstring,
+            ast_ref: fn.ast_ref
         }));
 
         return {
             classes,
-            functions: []
+            functions
         };
     }
 
