@@ -1141,11 +1141,14 @@ export class D3Visualizations {
      */
     private static convertCallGraphData(apiData: any): { functions: FunctionNode[] } {
         const functions: FunctionNode[] = apiData.functions.map((fn: any) => {
+            // Use class.method format if this function is a class method
+            const displayName = fn.class_name ? `${fn.class_name}.${fn.name}` : fn.name;
+            
             // Build calls array from the calls relationships
             const calls: string[] = [];
             if (apiData.calls) {
                 apiData.calls.forEach((call: any) => {
-                    if (call.caller === fn.name) {
+                    if (call.caller === (fn.class_name ? `${fn.class_name}.${fn.name}` : fn.name)) {
                         calls.push(call.callee);
                     }
                 });
@@ -1155,17 +1158,17 @@ export class D3Visualizations {
             const called_by: string[] = [];
             if (apiData.calls) {
                 apiData.calls.forEach((call: any) => {
-                    if (call.callee === fn.name) {
+                    if (call.callee === (fn.class_name ? `${fn.class_name}.${fn.name}` : fn.name)) {
                         called_by.push(call.caller);
                     }
                 });
             }
 
             return {
-                name: fn.name,
+                name: displayName,
                 calls,
                 called_by,
-                params: fn.args || [],
+                params: fn.args || fn.params || [],
                 lineno: fn.lineno,
                 docstring: fn.docstring,
                 ast_ref: fn.ast_ref

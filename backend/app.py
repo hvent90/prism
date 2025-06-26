@@ -130,20 +130,37 @@ def extract_function_calls(tree):
         else:
             return ast.unparse(node) if hasattr(ast, 'unparse') else str(node)
     
-    def visit_node(node, current_function=None):
-        if isinstance(node, ast.FunctionDef):
-            # Extract function definition
+    def visit_node(node, current_function=None, current_class=None):
+        if isinstance(node, ast.ClassDef):
+            # Track class context
+            current_class = node.name
+            # Continue visiting child nodes with class context
+            for child in ast.iter_child_nodes(node):
+                visit_node(child, current_function, current_class)
+        
+        elif isinstance(node, ast.FunctionDef):
+            # Extract function definition with class context if available
             params = [arg.arg for arg in node.args.args]
+            
+            # Keep original method name, add class_name field if inside a class
             function_info = {
                 'name': node.name,
+                'class_name': current_class,  # Add class context without modifying name
                 'params': params,
                 'calls': [],
                 'lineno': node.lineno,
                 'docstring': ast.get_docstring(node)
             }
-            functions[node.name] = function_info
-            function_nodes[node.name] = node  # Store AST node
-            current_function = node.name
+            
+            # Use a unique key for storage that includes class context
+            storage_key = f"{current_class}.{node.name}" if current_class else node.name
+            functions[storage_key] = function_info
+            function_nodes[storage_key] = node  # Store AST node
+            current_function = storage_key
+            
+            # Continue visiting child nodes with function context
+            for child in ast.iter_child_nodes(node):
+                visit_node(child, current_function, current_class)
         
         elif isinstance(node, ast.Call) and current_function:
             # Extract function call
@@ -156,10 +173,15 @@ def extract_function_calls(tree):
                 'callee': func_name,
                 'lineno': getattr(node, 'lineno', None)
             })
+            
+            # Continue visiting child nodes
+            for child in ast.iter_child_nodes(node):
+                visit_node(child, current_function, current_class)
         
-        # Recursively visit child nodes
-        for child in ast.iter_child_nodes(node):
-            visit_node(child, current_function)
+        else:
+            # For other nodes, continue visiting child nodes
+            for child in ast.iter_child_nodes(node):
+                visit_node(child, current_function, current_class)
     
     visit_node(tree)
     

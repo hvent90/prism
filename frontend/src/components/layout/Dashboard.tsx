@@ -97,6 +97,55 @@ export const Dashboard: React.FC<DashboardProps> = ({ className = '' }) => {
     }
   }, [analysis]);
 
+  // Handle visualization rendering to prevent unnecessary re-renders
+  useEffect(() => {
+    if (analysis && activeView === 'inheritance' && analysis.inheritance) {
+      const element = document.getElementById('inheritance-visualization');
+      if (element) {
+        // Clear any existing visualization
+        element.innerHTML = '';
+        
+        // Render D3 visualization with fixed ID for AST coordinator
+        setTimeout(() => {
+          D3Visualizations.renderInheritance('inheritance-visualization', analysis.inheritance);
+          
+          // Dispatch visualization data update event
+          const event = new CustomEvent('visualization-data-updated', {
+            detail: {
+              view: 'inheritance',
+              data: analysis.inheritance
+            }
+          });
+          document.dispatchEvent(event);
+        }, 0);
+      }
+    }
+  }, [analysis, activeView]);
+
+  useEffect(() => {
+    if (analysis && activeView === 'callgraph' && analysis.callGraph) {
+      const element = document.getElementById('callgraph-visualization');
+      if (element) {
+        // Clear any existing visualization
+        element.innerHTML = '';
+        
+        // Render D3 visualization with fixed ID for AST coordinator
+        setTimeout(() => {
+          D3Visualizations.renderCallGraph('callgraph-visualization', analysis.callGraph);
+          
+          // Dispatch visualization data update event
+          const event = new CustomEvent('visualization-data-updated', {
+            detail: {
+              view: 'callgraph',
+              data: analysis.callGraph
+            }
+          });
+          document.dispatchEvent(event);
+        }, 0);
+      }
+    }
+  }, [analysis, activeView]);
+
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -306,26 +355,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ className = '' }) => {
                     id="inheritance-visualization" 
                     className="d3-visualization-wrapper"
                     style={{ width: '100%', height: '600px' }}
-                    ref={(ref) => {
-                      if (ref && analysis.inheritance) {
-                        // Clear any existing visualization
-                        ref.innerHTML = '';
-                        
-                        // Render D3 visualization with fixed ID for AST coordinator
-                        setTimeout(() => {
-                          D3Visualizations.renderInheritance('inheritance-visualization', analysis.inheritance);
-                          
-                          // Dispatch visualization data update event
-                          const event = new CustomEvent('visualization-data-updated', {
-                            detail: {
-                              view: 'inheritance',
-                              data: analysis.inheritance
-                            }
-                          });
-                          document.dispatchEvent(event);
-                        }, 0);
-                      }
-                    }}
                   />
                 )}
                 
@@ -335,26 +364,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ className = '' }) => {
                     id="callgraph-visualization" 
                     className="d3-visualization-wrapper"
                     style={{ width: '100%', height: '600px' }}
-                    ref={(ref) => {
-                      if (ref && analysis.callGraph) {
-                        // Clear any existing visualization
-                        ref.innerHTML = '';
-                        
-                        // Render D3 visualization with fixed ID for AST coordinator
-                        setTimeout(() => {
-                          D3Visualizations.renderCallGraph('callgraph-visualization', analysis.callGraph);
-                          
-                          // Dispatch visualization data update event
-                          const event = new CustomEvent('visualization-data-updated', {
-                            detail: {
-                              view: 'callgraph',
-                              data: analysis.callGraph
-                            }
-                          });
-                          document.dispatchEvent(event);
-                        }, 0);
-                      }
-                    }}
                   />
                 )}
                 
