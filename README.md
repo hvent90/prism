@@ -6,6 +6,8 @@ basically this does the following:
 - uses that as entrypoints into the codebase's function call graph
 - using pathfinding between the entrypoints, as well as neighbors N hops away and the inheritance graph, build a context string (access to inheritance graph allows for various levels of detail for context to allow for wide understanding of codebase with mimimal context bloat)
 
+enjoy the rest of the readme, which is certified AI slop tier:
+
 # 🔮 Prism - Code AST Visualizer
 
 A code analysis and visualization tool that extracts Abstract Syntax Trees (AST) from Python code and visualizes them as graphs.
