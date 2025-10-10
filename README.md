@@ -2,7 +2,7 @@ editing this readme from my phone in HomeGoods:
 
 basically this does the following:
 
-- recieves a semantic search, gets most relevent parts from codebase
+- receives a semantic search, gets most relevent parts from codebase
 - uses that as entrypoints into the codebase's function call graph
 - using pathfinding between the entrypoints, as well as neighbors N hops away and the inheritance graph, build a context string (access to inheritance graph allows for various levels of detail for context to allow for wide understanding of codebase with mimimal context bloat)
 
